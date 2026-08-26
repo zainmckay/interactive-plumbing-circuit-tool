@@ -51,6 +51,7 @@
   .pipe.makeup{stroke:var(--makeup);stroke-width:1.8;stroke-dasharray:6 4}
   .pipe.supply{stroke:var(--makeup);stroke-width:2.4}
   svg.openloop .tankiso .sym{fill:var(--ink)}
+  .ghostiso .sym{fill:var(--ink)}
   svg.openloop .tankshell .cab{opacity:.5}
   svg.openloop .tankshell .cabtxt, svg.openloop .tankshell .cabsub{opacity:.5}
   .sym{stroke:var(--ink);stroke-width:1.2;fill:var(--paper)}
@@ -284,9 +285,9 @@ STATIONS.splice(0, STATIONS.length, ...STATIONS.filter(st=>KEEP.includes(st.id))
 const TANK = {x:197, w:32, h:67};
 
 /* ---------- build svg ---------- */
-function pipe(cls, d, name){
+function pipe(cls, d, name, dir){
   const pts = [...d.matchAll(/[ML]\s*([\d.\-]+)\s+([\d.\-]+)/g)].map(m=>[+m[1],+m[2]]);
-  PIPES.push({pts, name, group:CUR_GROUP});
+  PIPES.push({pts, name, group:CUR_GROUP, dir: dir||1});
   return `<path class="pipe ${cls}" d="${d}" data-name="${esc(name)}"/>`;
 }
 
@@ -305,7 +306,7 @@ function hotRun(cfg, comps){
 function coolRun(cfg, comps, tieX){
   /* riser down beside the unit, lane right at cfg.h into the cool manifold */
   let out = pipe('cool thin',
-    `M ${fx(cfg.x)} ${fy(cfg.port)} L ${fx(cfg.x)} ${fy(cfg.h)} L ${fx(CM_X)} ${fy(cfg.h)}`, BR);
+    `M ${fx(cfg.x)} ${fy(cfg.port)} L ${fx(cfg.x)} ${fy(cfg.h)} L ${fx(CM_X)} ${fy(cfg.h)}`, BR, -1);
   if(comps && comps.length && cfg.zone){
     const yB = fy(cfg.zone[0]), yT = fy(cfg.zone[1]), n = comps.length;
     comps.forEach((c,i)=>{         /* comps[0] = manifold end -> bottom of the zone */
@@ -357,7 +358,7 @@ function stationSVG(st){
     const u1c=st.u1x+3.5, u1h=st.u1x+10.5, u2c=st.u2x+3.5, u2h=st.u2x+10.5;
     /* per-unit drops w/ service valves + PRV */
     [u1c, u2c].forEach(ux=>{
-      s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR);
+      s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR, -1);
       s += SYM.SVC(fx(ux), yB+12, 'Isolation / flush service valve (Rinnai IOM)');
     });
     [u1h, u2h].forEach(ux=>{
@@ -372,7 +373,7 @@ function stationSVG(st){
     s += hotRun(LANES.rin.hot,
       [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],['UNION','Union / press disconnect']]);
     const rc = LANES.rin.cool;
-    s += pipe('cool thin', `M ${fx(rc.x)} ${fy(rc.port)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR);
+    s += pipe('cool thin', `M ${fx(rc.x)} ${fy(rc.port)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR, -1);
     s += symISO(fx(rc.x), fy(29.6), 'ISO — branch shutoff, 1-1/4"');
     s += symUNION(fx(172.8), fy(rc.h), 'Union / press disconnect');
     s += symISO(fx(177), fy(rc.h), 'ISO — cool manifold tie-in shutoff, 1-1/4"');
@@ -438,6 +439,30 @@ function spoutSVG(){
   s += symBFP(fx(12.6), fy(1.2), 'RPZ backflow preventer — open-loop supply (closed loop carries treatment chemicals)');
   s += symUNION(fx(16.9), fy(1.2), 'Union / press disconnect');
   s += `<text class="lbl" x="${fx(34)}" y="${fy(0.2)}">OPEN-LOOP SUPPLY 1"</text>`;
+  return s;
+}
+
+function breakMark(x,y){
+  return `<path class="sym" d="M ${x-1} ${y-5} l -5 10 M ${x+4} ${y-5} l -5 10" fill="none"/>`;
+}
+function ghostStubs(){
+  CUR_GROUP = 'tank';
+  const others = {npe:'NAVIEN NPE-180S2', loch:'LOCHINVAR WHB055N', laars:'LAARS LFTHF-199N',
+    altacCH:'ALTAC-136B (CH)', altacDHW:'ALTAC-136B (DHW)', rin:'RINNAI CX160iN cascade'};
+  let s='';
+  Object.keys(others).forEach(k=>{
+    const L = LANES[k], nm = others[k];
+    /* hot: tie vertical off the manifold + short lane stub, broken off */
+    s += pipe('hot thin', `M ${fx(L.hot.tie)} ${fy(HM_Y)} L ${fx(L.hot.tie)} ${fy(L.hot.h)} L ${fx(L.hot.tie-16)} ${fy(L.hot.h)}`,
+      `1-1/4" branch to ${nm} — appliance not shown in this example`, -1);
+    s += '<g class="ghostiso">'+symISO(fx(L.hot.tie), fy((L.hot.h+HM_Y)/2), `ISO — ${nm} hot tie-in, CLOSED (appliance not shown)`)+'</g>';
+    s += breakMark(fx(L.hot.tie-16), fy(L.hot.h));
+    /* cool: stub off the manifold + closed ISO, broken off */
+    s += pipe('cool thin', `M ${fx(CM_X)} ${fy(L.cool.h)} L ${fx(160)} ${fy(L.cool.h)}`,
+      `1-1/4" branch to ${nm} — appliance not shown in this example`);
+    s += '<g class="ghostiso">'+symISO(fx(166), fy(L.cool.h), `ISO — ${nm} cool tie-in, CLOSED (appliance not shown)`)+'</g>';
+    s += breakMark(fx(160), fy(L.cool.h));
+  });
   return s;
 }
 
@@ -513,6 +538,7 @@ function renderScene(){
   const svgParts = [baseSVG()];
   STATIONS.forEach(st=>{ if(!st.spout) svgParts.push(stationSVG(st)); });
   svgParts.push(tankSVG());
+  svgParts.push(ghostStubs());
   svgParts.push(stationSVG(STATIONS.find(st=>st.spout)));
   document.getElementById('stage').innerHTML =
     `<svg viewBox="0 0 ${VBW} ${VBH}" role="img" aria-label="Wall elevation with selectable appliance branches">${svgParts.join('')}</svg>`;
@@ -526,7 +552,7 @@ function renderScene(){
     custom.added.forEach((a,i)=>{
       if(!ALLSYM[a.type]) return;
       const tmp = document.createElementNS('http://www.w3.org/2000/svg','g');
-      tmp.innerHTML = ALLSYM[a.type](a.x, a.y, a.name);
+      tmp.innerHTML = ALLSYM[a.type](a.x, a.y, a.name, a.rot||0);
       const node = tmp.firstElementChild;
       if(!node) return;
       node.setAttribute('data-added', i);
@@ -624,7 +650,10 @@ function nearestPipe(p){
       t = Math.max(0, Math.min(1, t));
       const qx=x1+t*dx, qy=y1+t*dy;
       const d = Math.hypot(p.x-qx, p.y-qy);
-      if(!best || d<best.d) best = {x:qx, y:qy, d, group:pp.group};
+      if(!best || d<best.d){
+        const ang = Math.round(Math.atan2(dy*pp.dir, dx*pp.dir)*180/Math.PI);
+        best = {x:qx, y:qy, d, group:pp.group, ang};
+      }
     }
   });
   return best;
@@ -663,9 +692,11 @@ document.addEventListener('pointerup', e=>{
       if(isAdded){
         const a = custom.added[+d.added];
         a.x = snap.x; a.y = snap.y; a.group = snap.group;
+        if(a.type==='PUMP') a.rot = snap.ang;
       } else {
         custom.removed.add(d.cid);
-        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:d.name, group:snap.group});
+        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:d.name, group:snap.group,
+                           rot: d.type==='PUMP' ? snap.ang : 0});
       }
     } else {
       if(isAdded) custom.added.splice(+d.added, 1);
@@ -679,7 +710,8 @@ document.addEventListener('pointerup', e=>{
     if(e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom){
       const p = svgPoint(e), snap = nearestPipe(p);
       if(snap && snap.d<=SNAP){
-        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:BANK_NAME[d.type], group:snap.group});
+        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:BANK_NAME[d.type], group:snap.group,
+                           rot: d.type==='PUMP' ? snap.ang : 0});
         renderScene();
       }
     }
