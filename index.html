@@ -71,8 +71,8 @@
 </head>
 <body>
 <header>
-  <h1>HVAC / HYDRONIC TRAINING RIG — APPLIANCE BRANCH VISUAL</h1>
-  <p>WALL ELEVATION BASIS: CREO 239" O/A · SELECT APPLIANCES TO SHOW EACH BRANCH PIPED TO TK-1 · HOVER ANY COMPONENT OR PIPE FOR ITS NAME / SIZE</p>
+  <h1>HVAC / HYDRONIC TRAINING RIG — APPLIANCE BRANCH VISUAL · NTI CONCEPT EXAMPLE</h1>
+  <p>ONE APPLIANCE SHOWN (NTI NC085), PIPED PER ITS IOM TO THE TANK MANIFOLDS · SAME PATTERN REPEATS FOR ALL SEVEN APPLIANCES · HOVER ANY COMPONENT OR PIPE FOR ITS NAME / SIZE</p>
 </header>
 <div id="modes" role="group" aria-label="Layout mode">
   <button id="m-default" class="mseg on" aria-pressed="true">CES DEFAULT</button>
@@ -136,10 +136,10 @@ function symUNION(x,y,name){
    `<line class="sym" x1="${x-6}" y1="${y-2.5}" x2="${x+6}" y2="${y-2.5}"/>
     <line class="sym" x1="${x-6}" y1="${y+2.5}" x2="${x+6}" y2="${y+2.5}"/>`);
 }
-function symPUMP(x,y,name){
+function symPUMP(x,y,name,rot){
   return gwrap(name,
    `<circle class="sym" cx="${x}" cy="${y}" r="7.5"/>
-    <path class="symfill" d="M ${x-3} ${y-4.5} L ${x+4.5} ${y} L ${x-3} ${y+4.5} Z"/>`);
+    <path class="symfill" d="M ${x-3} ${y-4.5} L ${x+4.5} ${y} L ${x-3} ${y+4.5} Z"${rot?` transform="rotate(${rot} ${x} ${y})"`:''}/>`);
 }
 function symPRV(x,y,name){ // side relief w/ drip
   return gwrap(name,
@@ -200,7 +200,7 @@ const ALLSYM = {ISO:symISO,SVC:symSVC,CHK:symCHK,UNION:symUNION,PUMP:symPUMP,PRV
   LWCO:symLWCO,AAV:symAAV,DRAIN:symDRAIN,TI:symTI,YSTR:symYSTR,AS:symAS,XT:symXT,BFP:symBFP,PRFV:symPRFV};
 Object.keys(ALLSYM).forEach(k=>{
   const orig = ALLSYM[k];
-  ALLSYM[k] = (x,y,name)=> orig(x,y,name).replace('<g ', `<g data-ctype="${k}" `);
+  ALLSYM[k] = (x,y,name,...a)=> orig(x,y,name,...a).replace('<g ', `<g data-ctype="${k}" `);
 });
 symISO=ALLSYM.ISO; symSVC=ALLSYM.SVC; symCHK=ALLSYM.CHK; symUNION=ALLSYM.UNION;
 symPUMP=ALLSYM.PUMP; symPRV=ALLSYM.PRV; symLWCO=ALLSYM.LWCO; symAAV=ALLSYM.AAV;
@@ -276,6 +276,9 @@ const STATIONS = [
 
  {id:'spout', chip:'OPEN-LOOP SPOUT (TANKLESS)', spout:true}
 ];
+/* CONCEPT EXAMPLE: single-appliance version for design approval */
+const KEEP = ['nti','spout'];
+STATIONS.splice(0, STATIONS.length, ...STATIONS.filter(st=>KEEP.includes(st.id)));
 
 /* Rheem tank */
 const TANK = {x:197, w:32, h:67};
@@ -307,7 +310,7 @@ function coolRun(cfg, comps, tieX){
     const yB = fy(cfg.zone[0]), yT = fy(cfg.zone[1]), n = comps.length;
     comps.forEach((c,i)=>{         /* comps[0] = manifold end -> bottom of the zone */
       const t = n===1 ? .5 : i/(n-1);
-      out += SYM[c[0]](fx(cfg.x), yB - t*(yB-yT), c[1]);
+      out += SYM[c[0]](fx(cfg.x), yB - t*(yB-yT), c[1], c[0]==='PUMP' ? -90 : 0);
     });
   }
   out += symISO(fx(tieX==null?166:tieX), fy(cfg.h), 'ISO — cool manifold tie-in shutoff, 1-1/4"');
@@ -462,7 +465,7 @@ function tankSVG(){
   s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
   s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
   s += symYSTR(fx(190.4), fy(RUN_Y)-1, 'Y-strainer + dirt separator, 2" (only strainer on rig)');
-  s += symPUMP(fx(186.3), fy(RUN_Y), 'P-1 — system circulator, ECM variable speed (OFF in open-loop mode — city pressure drives flow)');
+  s += symPUMP(fx(186.3), fy(RUN_Y), 'P-1 — system circulator, ECM variable speed (OFF in open-loop mode — city pressure drives flow)', 180);
   /* expansion tank + make-up share one stub at pump suction — point of no pressure change */
   s += pipe('cool thin', `M ${fx(192.6)} ${fy(RUN_Y)} L ${fx(192.6)} ${fy(5.5)}`, 'Expansion / make-up connection — point of no pressure change');
   s += symXT(fx(192.6), fy(5.5), 'XT-1 — diaphragm expansion tank, floor mounted');
@@ -484,7 +487,7 @@ function baseSVG(){
   /* title block */
   s += `<g class="tblock">
         <text x="${VBW-16}" y="${VBH-40}" text-anchor="end">HVAC / HYDRONIC TRAINING RIG — WAREHOUSE BAY 2</text>
-        <text x="${VBW-16}" y="${VBH-28}" text-anchor="end">APPLIANCE BRANCH VISUAL · BASIS: CREO WALL ELEVATION 239" O/A</text>
+        <text x="${VBW-16}" y="${VBH-28}" text-anchor="end">NTI CONCEPT EXAMPLE — ONE OF SEVEN IDENTICAL-PATTERN BRANCHES · BASIS: CREO WALL ELEVATION 239" O/A</text>
         <text x="${VBW-16}" y="${VBH-16}" text-anchor="end">COMPONENTS PER OEM IOM — VERIFY AGAINST SUBMITTALS · NO SCALE</text></g>`;
   return s;
 }
