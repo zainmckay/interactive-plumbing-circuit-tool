@@ -290,7 +290,7 @@ const STATIONS = [
  {id:'spout', chip:'OPEN-LOOP SPOUT (TANKLESS)', spout:true}
 ];
 /* CONCEPT EXAMPLE: single-appliance version for design approval */
-const KEEP = ['nti','spout'];
+const KEEP = ['nti'];
 STATIONS.splice(0, STATIONS.length, ...STATIONS.filter(st=>KEEP.includes(st.id)));
 
 /* Rheem tank */
@@ -524,10 +524,10 @@ function tankSVG(){
   /* HOT manifold above the tank, dropping into the top tap */
   s += pipe('hot', `M ${fx(HM_L)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(67)}`, MAN_HOT);
   s += symAS(fx(HM_DROP), fy(88), 'AS-1 — coalescing air separator w/ AAV (hottest point)');
-  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2"')+'</g>';
   /* COOL manifold beside the tank, fed from the bottom tap through strainer + P-1 */
   s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
-  s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2"')+'</g>';
   s += symYSTR(fx(190.4), fy(RUN_Y)-1, 'Y-strainer + dirt separator, 2" (only strainer on rig)');
   /* expansion tank + make-up share one stub at pump suction — point of no pressure change */
   s += pipe('cool thin', `M ${fx(192.6)} ${fy(RUN_Y)} L ${fx(192.6)} ${fy(5.5)}`, 'Expansion / make-up connection — point of no pressure change');
@@ -577,7 +577,8 @@ function renderScene(){
   STATIONS.forEach(st=>{ if(!st.spout) svgParts.push(stationSVG(st)); });
   svgParts.push(tankSVG());
   svgParts.push(ghostStubs());
-  svgParts.push(stationSVG(STATIONS.find(st=>st.spout)));
+  const spoutSt = STATIONS.find(st=>st.spout);
+  if(spoutSt) svgParts.push(stationSVG(spoutSt));
   document.getElementById('stage').innerHTML =
     `<svg viewBox="0 0 ${VBW} ${VBH}" role="img" aria-label="Wall elevation with selectable appliance branches">${svgParts.join('')}</svg>`;
   const svgEl = document.querySelector('#stage svg');
