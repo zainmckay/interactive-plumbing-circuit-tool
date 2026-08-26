@@ -90,10 +90,20 @@ const fx = i => X0 + i*S;
 const fy = h => FLOOR - h*S;
 const VBW = 1170, VBH = 540;
 
-const HOT_H = 16, COOL_H = 10;          // header heights AFF
-const HDR_L = 6;                         // header left end (inches)
-const HDR_NAME_HOT  = '2" copper — HOT header (16" AFF)';
-const HDR_NAME_COOL = '2" copper — COOL header (10" AFF)';
+const HM_Y = 96, HM_L = 160, HM_DROP = 222;   // hot manifold: elevation, left cap, tank drop x (in)
+const CM_X = 181, CM_TOP = 30, RUN_Y = 7;     // cool manifold x, top, suction-run elevation (in)
+const MAN_HOT  = '2" copper — HOT manifold (at tank)';
+const MAN_COOL = '2" copper — COOL manifold (at tank)';
+/* home-run lanes: hot high & descending L-to-R, cool low & ascending L-to-R = zero crossings */
+const LANES = {
+ npe:     {hot:{x:29.5, port:36, h:92, tie:164, zone:[45,90]}, cool:{x:15,   port:36, h:9,    zone:[11.5,34]}},
+ nti:     {hot:{x:77.5, port:30, h:89, tie:172, zone:[40,87]}, cool:{x:55,   port:30, h:12.2, zone:[14.7,28]}},
+ loch:    {hot:{x:100.5,port:36, h:86, tie:180, zone:[40,84]}, cool:{x:85.5, port:36, h:15.4, zone:[17.9,34]}},
+ laars:   {hot:{x:125.5,port:32, h:83, tie:188, zone:[38,81]}, cool:{x:101,  port:32, h:18.6, zone:[21.1,30]}},
+ altacCH: {hot:{x:128.6,port:36, h:80, tie:196, zone:[68,78]}, cool:{x:133,  port:36, h:21.8, zone:[24.3,34]}},
+ altacDHW:{hot:{x:151.5,port:36, h:77, tie:204, zone:[42,75]}, cool:{x:144,  port:36, h:25,   zone:[27.5,34]}},
+ rin:     {hot:{x:174.3,port:28, h:74, tie:212, zone:[64,72]}, cool:{x:170,  port:31, h:28.2}}
+};
 const BR = '1-1/4" copper — branch';
 const ADAPT = 'Adapt to appliance outlet';
 
@@ -277,20 +287,31 @@ function pipe(cls, d, name){
   return `<path class="pipe ${cls}" d="${d}" data-name="${esc(name)}"/>`;
 }
 
-function riser(cls, x, yTop, comps, size, extra){
-  /* vertical run from header to yTop with components spaced along it */
-  const yHdr = cls==='cool' ? fy(COOL_H) : fy(HOT_H);
-  let out = pipe(cls+' thin', `M ${x} ${yHdr} L ${x} ${yTop}`, size);
-  const n = comps.length;
-  const a = Math.min(yHdr,yTop)+10, b = Math.max(yHdr,yTop)-10;
-  comps.forEach((c,i)=>{
+function hotRun(cfg, comps){
+  /* riser up beside the unit, lane right at cfg.h, tie vertical up into the hot manifold */
+  let out = pipe('hot thin',
+    `M ${fx(cfg.x)} ${fy(cfg.port)} L ${fx(cfg.x)} ${fy(cfg.h)} L ${fx(cfg.tie)} ${fy(cfg.h)} L ${fx(cfg.tie)} ${fy(HM_Y)}`, BR);
+  const yT = fy(cfg.zone[1]), yB = fy(cfg.zone[0]), n = comps.length;
+  comps.forEach((c,i)=>{           /* comps[0] = manifold end -> topmost in the zone */
     const t = n===1 ? .5 : i/(n-1);
-    /* order from header upward: comps[0] nearest header */
-    const y = (yHdr > yTop) ? (yHdr-10) - t*((yHdr-10)-(yTop+10))
-                            : (yHdr+10) + t*((yTop-10)-(yHdr+10));
-    out += SYM[c[0]](x, y, c[1]);
+    out += SYM[c[0]](fx(cfg.x), yT + t*(yB-yT), c[1]);
   });
-  return out + (extra||'');
+  out += symISO(fx(cfg.tie), fy((cfg.h+HM_Y)/2), 'ISO — hot manifold tie-in shutoff, 1-1/4"');
+  return out;
+}
+function coolRun(cfg, comps, tieX){
+  /* riser down beside the unit, lane right at cfg.h into the cool manifold */
+  let out = pipe('cool thin',
+    `M ${fx(cfg.x)} ${fy(cfg.port)} L ${fx(cfg.x)} ${fy(cfg.h)} L ${fx(CM_X)} ${fy(cfg.h)}`, BR);
+  if(comps && comps.length && cfg.zone){
+    const yB = fy(cfg.zone[0]), yT = fy(cfg.zone[1]), n = comps.length;
+    comps.forEach((c,i)=>{         /* comps[0] = manifold end -> bottom of the zone */
+      const t = n===1 ? .5 : i/(n-1);
+      out += SYM[c[0]](fx(cfg.x), yB - t*(yB-yT), c[1]);
+    });
+  }
+  out += symISO(fx(tieX==null?166:tieX), fy(cfg.h), 'ISO — cool manifold tie-in shutoff, 1-1/4"');
+  return out;
 }
 
 function cabinet(st){
@@ -313,30 +334,30 @@ function stationSVG(st){
   let s = st.cascade ? cascadeCab(st) : cabinet(st);
   if(st.nobranch) return `<g class="station" id="st-${st.id}">${s}</g>`;
 
-  const portY = st.mount==='wall' ? fy(36) : fy(st.portH||30);
+  const L = LANES[st.id==='altac' ? 'altacCH' : st.id];
 
   if(st.altac){
-    const yB = fy(36);
-    s += riser('cool', fx(st.chCool), yB, st.chCoolC, BR);
-    s += riser('hot',  fx(st.chHot),  yB, st.chHotC,  BR);
-    s += riser('cool', fx(st.dhwCool),yB, st.dhwCoolC,BR);
-    s += riser('hot',  fx(st.dhwHot), yB, st.dhwHotC, BR);
-    s += pipe('cool thin',`M ${fx(st.chCool)} ${yB} L ${fx(st.chCool)} ${yB-6}`, ADAPT);
-    s += pipe('hot thin', `M ${fx(st.chHot)} ${yB} L ${fx(st.chHot)} ${yB-6}`, ADAPT);
-    s += pipe('cool thin',`M ${fx(st.dhwCool)} ${yB} L ${fx(st.dhwCool)} ${yB-6}`, ADAPT);
-    s += pipe('hot thin', `M ${fx(st.dhwHot)} ${yB} L ${fx(st.dhwHot)} ${yB-6}`, ADAPT);
-    s += `<text class="lbl" x="${fx((st.chCool+st.chHot)/2)}" y="${fy(37.2)}" text-anchor="middle">CH</text>
-          <text class="lbl" x="${fx((st.dhwCool+st.dhwHot)/2)}" y="${fy(37.2)}" text-anchor="middle">DHW</text>`;
+    const CH = LANES.altacCH, DH = LANES.altacDHW;
+    s += coolRun(CH.cool, st.chCoolC);
+    s += hotRun(CH.hot, st.chHotC);
+    s += coolRun(DH.cool, st.dhwCoolC);
+    s += hotRun(DH.hot, st.dhwHotC);
+    /* adapt stubs: cool up into cabinet bottom, hot sideways into cabinet edge */
+    s += pipe('cool thin',`M ${fx(CH.cool.x)} ${fy(36)} L ${fx(CH.cool.x)} ${fy(37.5)}`, ADAPT);
+    s += pipe('cool thin',`M ${fx(DH.cool.x)} ${fy(36)} L ${fx(DH.cool.x)} ${fy(37.5)}`, ADAPT);
+    s += pipe('hot thin', `M ${fx(CH.hot.x)} ${fy(37.5)} L ${fx(st.x)+3} ${fy(37.5)}`, ADAPT);
+    s += pipe('hot thin', `M ${fx(DH.hot.x)} ${fy(37.5)} L ${fx(st.x+st.w)-3} ${fy(37.5)}`, ADAPT);
+    s += `<text class="lbl" x="${fx(135.5)}" y="${fy(38.6)}" text-anchor="middle">CH</text>
+          <text class="lbl" x="${fx(146.5)}" y="${fy(38.6)}" text-anchor="middle">DHW</text>`;
   } else if(st.cascade){
     const yB = fy(36), subCool = fy(31), subHot = fy(28);
     const u1c=st.u1x+3.5, u1h=st.u1x+10.5, u2c=st.u2x+3.5, u2h=st.u2x+10.5;
-    const midC = 170, midH = 174.3;
     /* per-unit drops w/ service valves + PRV */
-    [ [u1c,'cool'], [u2c,'cool'] ].forEach(([ux])=>{
+    [u1c, u2c].forEach(ux=>{
       s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR);
       s += SYM.SVC(fx(ux), yB+12, 'Isolation / flush service valve (Rinnai IOM)');
     });
-    [ [u1h], [u2h] ].forEach(([ux])=>{
+    [u1h, u2h].forEach(ux=>{
       s += pipe('hot thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subHot}`, BR);
       s += SYM.PRV(fx(ux), yB+9, 'PRV — relief on outlet nipple (Rinnai IOM)');
       s += SYM.SVC(fx(ux), yB+22, 'Isolation / flush service valve (Rinnai IOM)');
@@ -344,20 +365,24 @@ function stationSVG(st){
     /* cascade sub-headers */
     s += pipe('cool thin', `M ${fx(u1c)} ${subCool} L ${fx(u2c)} ${subCool}`, '1-1/4" copper — cascade cold balance line (Rinnai IOM)');
     s += pipe('hot thin',  `M ${fx(u1h)} ${subHot} L ${fx(u2h)} ${subHot}`, '1-1/4" copper — cascade hot collection line (Rinnai IOM)');
-    /* common drops to headers */
-    s += riser('cool', fx(midC), subCool, [['ISO','ISO — branch shutoff, 1-1/4"'],['UNION','Union / press disconnect']], BR);
-    s += riser('hot',  fx(midH), subHot,  [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],['UNION','Union / press disconnect']], BR);
+    /* common home runs */
+    s += hotRun(LANES.rin.hot,
+      [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],['UNION','Union / press disconnect']]);
+    const rc = LANES.rin.cool;
+    s += pipe('cool thin', `M ${fx(rc.x)} ${fy(rc.port)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR);
+    s += symISO(fx(rc.x), fy(29.6), 'ISO — branch shutoff, 1-1/4"');
+    s += symUNION(fx(172.8), fy(rc.h), 'Union / press disconnect');
+    s += symISO(fx(177), fy(rc.h), 'ISO — cool manifold tie-in shutoff, 1-1/4"');
   } else if(st.mount==='floor'){
-    /* risers run beside the cabinet, elbow into side ports */
-    s += riser('cool', fx(st.coolX), portY, st.cool, BR);
-    s += riser('hot',  fx(st.hotX),  portY, st.hot,  BR);
-    s += pipe('cool thin', `M ${fx(st.coolX)} ${portY} L ${fx(st.x)+3} ${portY}`, ADAPT);
-    s += pipe('hot thin',  `M ${fx(st.hotX)} ${portY} L ${fx(st.x+st.w)-3} ${portY}`, ADAPT);
+    s += coolRun(L.cool, st.cool);
+    s += hotRun(L.hot, st.hot);
+    s += pipe('cool thin', `M ${fx(L.cool.x)} ${fy(L.cool.port)} L ${fx(st.x)+3} ${fy(L.cool.port)}`, ADAPT);
+    s += pipe('hot thin',  `M ${fx(L.hot.x)} ${fy(L.hot.port)} L ${fx(st.x+st.w)-3} ${fy(L.hot.port)}`, ADAPT);
   } else {
-    s += riser('cool', fx(st.coolX), portY, st.cool, BR);
-    s += riser('hot',  fx(st.hotX),  portY, st.hot,  BR);
-    s += pipe('cool thin', `M ${fx(st.coolX)} ${portY} L ${fx(st.coolX)} ${portY-6}`, ADAPT);
-    s += pipe('hot thin',  `M ${fx(st.hotX)} ${portY} L ${fx(st.hotX)} ${portY-6}`, ADAPT);
+    s += coolRun(L.cool, st.cool);
+    s += hotRun(L.hot, st.hot);
+    s += pipe('cool thin', `M ${fx(L.cool.x)} ${fy(36)} L ${fx(L.cool.x)} ${fy(37.5)}`, ADAPT);
+    s += pipe('hot thin',  `M ${fx(L.hot.x)} ${fy(37.5)} L ${st.x<L.hot.x ? fx(st.x+st.w)-3 : fx(st.x)+3} ${fy(37.5)}`, ADAPT);
   }
   return `<g class="station" id="st-${st.id}">${s}</g>`;
 }
@@ -377,47 +402,46 @@ function cascadeCab(st){
 }
 
 function spoutSVG(){
-  const hotY=fy(HOT_H), coolY=fy(COOL_H);
+  
   let s='';
-  /* discharge: tees off the hot riser junction next to the tank, upstream of the
-     tank hot ISO, runs across the tank face and out the right exterior wall */
-  const tx = fx(TANK.x), tR = fx(TANK.x)+TANK.w*S;
-  const riserX = tx-30, wallX = tR+10;
-  s += pipe('hot', `M ${riserX} ${hotY} L ${wallX+12} ${hotY} L ${wallX+12} ${fy(6)} L ${wallX+26} ${fy(6)}`,
-    '1" copper — open-loop discharge run (tees off hot header at tank, upstream of tank ISO), sloped to exterior spout');
-  s += symISO(tx-22, hotY, 'Spout route valve — NORMALLY CLOSED. Open for open-loop mode; close both tank isolation valves');
-  s += symTI(tx-9, hotY, 'TI — open-loop discharge temperature');
-  s += `<line class="pipe hot thin" x1="${tx+52}" y1="${hotY}" x2="${tx+52}" y2="${hotY+10}" data-name="${esc('Drain-down — low point, inside heated space')}"/>`;
-  s += symDRAIN(tx+52, hotY+12, 'Drain-down valve — winterize spout run in freezing weather');
+  /* discharge: continues the hot manifold past the tank drop (upstream of the tank
+     hot ISO), out the right exterior wall, down to the spout */
+  const wallX = fx(TANK.x)+TANK.w*S+10;
+  s += pipe('hot', `M ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(234)} ${fy(HM_Y)} L ${fx(234)} ${fy(6)} L ${fx(237.2)} ${fy(6)}`,
+    '1" copper — open-loop discharge (tees off hot manifold upstream of tank ISO), sloped to exterior spout');
+  s += symISO(fx(225.4), fy(HM_Y), 'Spout route valve — NORMALLY CLOSED. Open for open-loop mode; close both tank isolation valves');
+  s += symTI(fx(229), fy(HM_Y), 'TI — open-loop discharge temperature');
+  s += `<line class="pipe hot thin" x1="${fx(227.2)}" y1="${fy(HM_Y)}" x2="${fx(227.2)}" y2="${fy(HM_Y)+9}" data-name="${esc('Drain-down — inside heated space')}"/>`;
+  s += symDRAIN(fx(227.2), fy(HM_Y)+11, 'Drain-down valve — winterize spout run in freezing weather');
   /* exterior wall (right) */
   s += rawg('Exterior wall penetration — sleeve and seal',
-   `<rect class="sym" x="${wallX}" y="${fy(20)}" width="6" height="${fy(1)-fy(20)}"/>
-    <line class="sym" x1="${wallX}" y1="${fy(16)}" x2="${wallX+6}" y2="${fy(18.5)}"/>
-    <line class="sym" x1="${wallX}" y1="${fy(10)}" x2="${wallX+6}" y2="${fy(12.5)}"/>
-    <line class="sym" x1="${wallX}" y1="${fy(4)}" x2="${wallX+6}" y2="${fy(6.5)}"/>`);
+   `<rect class="sym" x="${wallX}" y="${fy(102)}" width="6" height="${fy(1)-fy(102)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(88)}" x2="${wallX+6}" y2="${fy(92)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(58)}" x2="${wallX+6}" y2="${fy(62)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(28)}" x2="${wallX+6}" y2="${fy(32)}"/>`);
   /* frost-free sillcock outside, air gap to grade */
-  const sx=wallX+26, sy=fy(6);
+  const sx=fx(237.2), sy=fy(6);
   s += rawg('Frost-free sillcock w/ integral vacuum breaker — maintain AIR GAP at discharge. Water up to setpoint temp: ANSI Z535 hot-discharge signage',
    `<path class="sym" d="M ${sx} ${sy} l 7 7"/>
     <line class="sym" x1="${sx+1}" y1="${sy-3}" x2="${sx+1}" y2="${sy}"/>
     <circle class="sym" cx="${sx+1}" cy="${sy-6}" r="3"/>
     <line class="sym" x1="${sx+7}" y1="${sy+8}" x2="${sx+7}" y2="${fy(0)-2}" stroke-dasharray="2 3"/>`);
-  /* open-loop cold supply — full size, bypasses the make-up PRFV */
-  const yS=coolY+14, teeX=fx(4), mkY=coolY+30;
-  s += pipe('supply', `M ${teeX} ${mkY} L ${teeX} ${yS} L ${fx(19.5)} ${yS} L ${fx(19.5)} ${coolY}`,
-    '1" copper — open-loop cold supply. Tees off the city entry upstream of the make-up assembly and bypasses the PRFV: a 20 psi fill valve cannot pass tankless minimum flow per IOM. Shared run upstream of this tee must be full size.');
-  s += `<circle cx="${teeX}" cy="${mkY}" r="3" class="symfill" data-name="${esc('Tee at city entry — one service feeds both make-up and open-loop supply')}"/>`;
-  s += symISO(fx(7.2), yS, 'ISO — open-loop supply valve, NORMALLY CLOSED');
-  s += symBFP(fx(12.6), yS, 'RPZ backflow preventer — open-loop supply (closed loop carries treatment chemicals)');
-  s += symUNION(fx(16.9), yS, 'Union / press disconnect');
-  s += `<text class="lbl" x="${fx(5.5)}" y="${yS-7}">OPEN-LOOP SUPPLY 1"</text>`;
+  /* open-loop cold supply — tees off the city entry, runs low, enters the cool
+     manifold downstream of P-1 so city pressure never pushes through a stopped pump */
+  s += pipe('supply', `M ${fx(4)} ${fy(6.5)} L ${fx(4)} ${fy(1.2)} L ${fx(173)} ${fy(1.2)} L ${fx(173)} ${fy(7.9)} L ${fx(CM_X)} ${fy(7.9)}`,
+    '1" copper — open-loop cold supply. Tees off the city entry, bypasses the make-up PRFV (a 20 psi fill valve cannot pass tankless minimum flow per IOM), and enters the cool manifold downstream of P-1. Shared run upstream of the tee must be full size.');
+  s += `<circle cx="${fx(4)}" cy="${fy(6.5)}" r="3" class="symfill" data-name="${esc('Tee at city entry — one service feeds both make-up and open-loop supply')}"/>`;
+  s += symISO(fx(7.2), fy(1.2), 'ISO — open-loop supply valve, NORMALLY CLOSED');
+  s += symBFP(fx(12.6), fy(1.2), 'RPZ backflow preventer — open-loop supply (closed loop carries treatment chemicals)');
+  s += symUNION(fx(16.9), fy(1.2), 'Union / press disconnect');
+  s += `<text class="lbl" x="${fx(34)}" y="${fy(0.2)}">OPEN-LOOP SUPPLY 1"</text>`;
   return s;
 }
 
 function tankSVG(){
   CUR_GROUP = 'tank';
   const x=fx(TANK.x), w=TANK.w*S, yT=fy(TANK.h), h=TANK.h*S, cx=x+w/2;
-  const hotY=fy(HOT_H), coolY=fy(COOL_H);
+  
   let s = `<g class="tankshell" data-name="RHEEM ST175 — 175 gal buffer tank (TK-1)">
      <path class="cab" d="M ${x} ${yT+14} Q ${x} ${yT} ${cx} ${yT} Q ${x+w} ${yT} ${x+w} ${yT+14}
         L ${x+w} ${fy(0)} L ${x} ${fy(0)} Z"/>
@@ -430,24 +454,24 @@ function tankSVG(){
   s += symTI(x+2, fy(34), 'Thermowell T2 — stratification');
   s += symTI(x+2, fy(18), 'Thermowell T3 — stratification');
   s += symDRAIN(cx-6, fy(2), 'Tank drain + hand-hole cleanout');
-  /* hot header into upper side tap */
-  s += pipe('hot', `M ${fx(HDR_L)} ${hotY} L ${x-30} ${hotY} L ${x-30} ${fy(56)} L ${x} ${fy(56)}`, HDR_NAME_HOT);
-  s += symAS(x-30, fy(44), 'AS-1 — coalescing air separator w/ AAV (hottest point)');
-  s += '<g class="tankiso">'+symISO(x-30, fy(52)+2, 'ISO — tank hot isolation, 2" — CLOSE for open-loop mode')+'</g>';
-  /* cool from tank bottom tap through strainer + pump to header */
-  s += pipe('cool', `M ${x} ${fy(6)} L ${x-52} ${fy(6)} L ${x-52} ${coolY} L ${fx(HDR_L)} ${coolY}`, HDR_NAME_COOL);
-  s += '<g class="tankiso">'+symISO(x-14, fy(6), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
-  s += symYSTR(x-32, fy(6)-1, 'Y-strainer + dirt separator, 2" (only strainer on rig)');
-  s += symPUMP(x-52, fy(8.5), 'P-1 — system circulator, ECM variable speed (OFF in open-loop mode — city pressure drives flow)');
-  /* expansion tank + make-up at pump suction */
-  s += pipe('cool thin', `M ${x-64} ${coolY} L ${x-64} ${coolY+16}`, 'Expansion tank branch — point of no pressure change');
-  s += symXT(x-64, coolY+16, 'XT-1 — diaphragm expansion tank');
-  s += pipe('makeup', `M ${fx(0.4)} ${coolY+30} L ${x-80} ${coolY+30} L ${x-80} ${coolY}`, 'Make-up water — city fill, closed-loop mode only');
-  s += symISO(fx(8), coolY+30, 'ISO — make-up shutoff');
-  s += symBFP(fx(14), coolY+30, 'BFP — backflow preventer');
-  s += symPRFV(fx(20), coolY+30, 'PRFV — pressure reducing fill valve, 20 psi');
-  s += symCHK(fx(26), coolY+30, 'CHK — make-up check');
-  s += `<text class="lbl" x="${fx(1)}" y="${coolY+42}">CITY H₂O — MAKE-UP (EXISTING PEX, DASHED)</text>`;
+  /* HOT manifold above the tank, dropping into the top tap */
+  s += pipe('hot', `M ${fx(HM_L)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(67)}`, MAN_HOT);
+  s += symAS(fx(HM_DROP), fy(88), 'AS-1 — coalescing air separator w/ AAV (hottest point)');
+  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  /* COOL manifold beside the tank, fed from the bottom tap through strainer + P-1 */
+  s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
+  s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  s += symYSTR(fx(190.4), fy(RUN_Y)-1, 'Y-strainer + dirt separator, 2" (only strainer on rig)');
+  s += symPUMP(fx(186.3), fy(RUN_Y), 'P-1 — system circulator, ECM variable speed (OFF in open-loop mode — city pressure drives flow)');
+  /* expansion tank + make-up share one stub at pump suction — point of no pressure change */
+  s += pipe('cool thin', `M ${fx(192.6)} ${fy(RUN_Y)} L ${fx(192.6)} ${fy(5.5)}`, 'Expansion / make-up connection — point of no pressure change');
+  s += symXT(fx(192.6), fy(5.5), 'XT-1 — diaphragm expansion tank, floor mounted');
+  s += pipe('makeup', `M ${fx(0.4)} ${fy(6.5)} L ${fx(192.6)} ${fy(6.5)}`, 'Make-up water — city fill, closed-loop mode only');
+  s += symISO(fx(8), fy(6.5), 'ISO — make-up shutoff');
+  s += symBFP(fx(14), fy(6.5), 'BFP — backflow preventer');
+  s += symPRFV(fx(20), fy(6.5), 'PRFV — pressure reducing fill valve, 20 psi');
+  s += symCHK(fx(26), fy(6.5), 'CHK — make-up check');
+  s += `<text class="lbl" x="${fx(1)}" y="${fy(3.6)}">CITY H₂O — MAKE-UP (PEX, DASHED)</text>`;
   return `<g id="tankgrp">${s}</g>`;
 }
 
@@ -456,9 +480,7 @@ function baseSVG(){
   /* floor */
   s += `<line class="floorline" x1="${fx(0)-20}" y1="${fy(0)}" x2="${fx(TANK.x+TANK.w)+52}" y2="${fy(0)}"/>`;
   /* AFF dims */
-  s += `<line class="dim" x1="${fx(79.5)}" y1="${fy(0)}" x2="${fx(79.5)}" y2="${fy(HOT_H)}"/>
-        <text class="dimtxt" x="${fx(79.5)+3}" y="${fy(COOL_H)+3}">10"</text>
-        <text class="dimtxt" x="${fx(79.5)+3}" y="${fy(HOT_H)+3}">16"</text>`;
+  
   /* title block */
   s += `<g class="tblock">
         <text x="${VBW-16}" y="${VBH-40}" text-anchor="end">HVAC / HYDRONIC TRAINING RIG — WAREHOUSE BAY 2</text>
