@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training Rig — Appliance Branch Visual</title>
+<style>
+  :root{
+    --paper:#f6f4ec; --ink:#26251f; --faint:#8d8a7e;
+    --hot:#b23a2a; --cool:#2b5d8c; --makeup:#3f7d4e;
+    --chipbg:#eceadf; --chipon:#26251f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:ui-monospace,'IBM Plex Mono','Cascadia Mono',Menlo,Consolas,monospace;}
+  header{padding:14px 20px 6px}
+  header h1{font-size:15px;margin:0;letter-spacing:.06em;font-weight:600}
+  header p{margin:4px 0 0;font-size:11px;color:var(--faint);letter-spacing:.03em}
+  #chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px 4px}
+  .chip{border:1px solid var(--ink);background:var(--chipbg);color:var(--ink);
+    font:inherit;font-size:11px;letter-spacing:.04em;padding:5px 10px;cursor:pointer;
+    border-radius:2px;display:flex;gap:7px;align-items:center}
+  .chip .dot{width:8px;height:8px;border:1px solid var(--ink);display:inline-block;background:transparent}
+  .chip.on{background:var(--chipon);color:var(--paper)}
+  .chip.on .dot{background:var(--paper);border-color:var(--paper)}
+  .chip:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+  #modes{display:flex;padding:10px 20px 0}
+  .mseg{border:1px solid var(--ink);background:var(--chipbg);color:var(--ink);font:inherit;
+    font-size:11px;letter-spacing:.05em;padding:5px 14px;cursor:pointer}
+  .mseg.on{background:var(--ink);color:var(--paper)}
+  .mseg:first-child{border-radius:2px 0 0 2px}
+  .mseg:last-child{border-radius:0 2px 2px 0;border-left:none}
+  #bank{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 20px 0}
+  #bank[hidden]{display:none}
+  .bankitem{border:1px dashed var(--ink);background:var(--paper);display:flex;flex-direction:column;
+    align-items:center;gap:1px;padding:4px 6px;font:inherit;font-size:8px;color:#5c594e;
+    cursor:grab;touch-action:none;border-radius:2px;min-width:56px}
+  .bankitem:active{cursor:grabbing}
+  #bankhint{font-size:10px;color:var(--faint);letter-spacing:.03em;flex-basis:100%}
+  svg.custom [data-cid]{cursor:grab;touch-action:none}
+  #ghost{position:fixed;pointer-events:none;z-index:20;opacity:.85}
+  #stage{padding:4px 12px 16px}
+  svg{width:100%;height:auto;display:block;background:var(--paper)}
+  .cab{fill:#e3e0d4;stroke:var(--ink);stroke-width:1.4}
+  .cab.dark{fill:#b8b5aa}
+  .cabtxt{font-size:9.5px;fill:var(--ink)}
+  .cabsub{font-size:8px;fill:#5c594e}
+  .pipe{fill:none;stroke-width:3;stroke-linecap:square;stroke-linejoin:miter}
+  .pipe.hot{stroke:var(--hot)} .pipe.cool{stroke:var(--cool)}
+  .pipe.thin{stroke-width:2.2}
+  .pipe.makeup{stroke:var(--makeup);stroke-width:1.8;stroke-dasharray:6 4}
+  .pipe.supply{stroke:var(--makeup);stroke-width:2.4}
+  svg.openloop .tankiso .sym{fill:var(--ink)}
+  svg.openloop .tankshell .cab{opacity:.5}
+  svg.openloop .tankshell .cabtxt, svg.openloop .tankshell .cabsub{opacity:.5}
+  .sym{stroke:var(--ink);stroke-width:1.2;fill:var(--paper)}
+  .symfill{fill:var(--ink)}
+  .lbl{font-size:8.5px;fill:#5c594e}
+  .dim{stroke:var(--faint);stroke-width:.8}
+  .dimtxt{font-size:8.5px;fill:var(--faint)}
+  [data-name]{cursor:crosshair}
+  [data-name]:hover .sym{stroke-width:2}
+  g.station.hidden{display:none}
+  .floorline{stroke:var(--ink);stroke-width:2}
+  #tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--paper);
+    font-size:11px;padding:4px 8px;border-radius:2px;opacity:0;transition:opacity .08s;
+    letter-spacing:.03em;z-index:10;max-width:260px}
+  .tblock{font-size:8px;fill:var(--faint)}
+  @media (prefers-reduced-motion: reduce){#tip{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>HVAC / HYDRONIC TRAINING RIG — APPLIANCE BRANCH VISUAL</h1>
+  <p>WALL ELEVATION BASIS: CREO 239" O/A · SELECT APPLIANCES TO SHOW EACH BRANCH PIPED TO TK-1 · HOVER ANY COMPONENT OR PIPE FOR ITS NAME / SIZE</p>
+</header>
+<div id="modes" role="group" aria-label="Layout mode">
+  <button id="m-default" class="mseg on" aria-pressed="true">CES DEFAULT</button>
+  <button id="m-custom" class="mseg" aria-pressed="false">CUSTOM</button>
+</div>
+<div id="chips" role="group" aria-label="Show or hide appliances"></div>
+<div id="bank" hidden aria-label="Component bank"></div>
+<div id="stage"></div>
+<div id="tip" role="status"></div>
+
+<script>
+/* ---------- scale: wall inches -> px ---------- */
+const S = 4.35, X0 = 46, FLOOR = 486;
+const fx = i => X0 + i*S;
+const fy = h => FLOOR - h*S;
+const VBW = 1170, VBH = 540;
+
+const HOT_H = 16, COOL_H = 10;          // header heights AFF
+const HDR_L = 6;                         // header left end (inches)
+const HDR_NAME_HOT  = '2" copper — HOT header (16" AFF)';
+const HDR_NAME_COOL = '2" copper — COOL header (10" AFF)';
+const BR = '1-1/4" copper — branch';
+const ADAPT = 'Adapt to appliance outlet';
+
+/* ---------- symbol builders (return svg strings) ---------- */
+const esc = t => String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+let COMP_SEQ = 0, PIPES = [], CUR_GROUP = 'tank';
+function gwrap(name, inner){ return `<g data-cid="${COMP_SEQ++}" data-name="${esc(name)}">${inner}</g>`; }
+function rawg(name, inner){ return `<g data-name="${esc(name)}">${inner}</g>`; }
+
+function symISO(x,y,name){
+  const s=5.5;
+  return gwrap(name,
+   `<path class="sym" d="M ${x-s} ${y-s} L ${x} ${y} L ${x-s} ${y+s} Z M ${x+s} ${y-s} L ${x} ${y} L ${x+s} ${y+s} Z"/>`);
+}
+function symSVC(x,y,name){ // isolation/flush service valve — bowtie + capped purge stub
+  const s=5.5;
+  return gwrap(name,
+   `<path class="sym" d="M ${x-s} ${y-s} L ${x} ${y} L ${x-s} ${y+s} Z M ${x+s} ${y-s} L ${x} ${y} L ${x+s} ${y+s} Z"/>
+    <line class="sym" x1="${x}" y1="${y}" x2="${x+10}" y2="${y}"/>
+    <line class="sym" x1="${x+10}" y1="${y-3}" x2="${x+10}" y2="${y+3}"/>`);
+}
+function symCHK(x,y,name){
+  const s=5.5;
+  return gwrap(name,
+   `<path class="sym" d="M ${x-s} ${y-s} L ${x} ${y} L ${x-s} ${y+s} Z M ${x+s} ${y-s} L ${x} ${y} L ${x+s} ${y+s} Z"/>
+    <line class="sym" x1="${x-s}" y1="${y+s}" x2="${x+s}" y2="${y-s}"/>`);
+}
+function symUNION(x,y,name){
+  return gwrap(name,
+   `<line class="sym" x1="${x-6}" y1="${y-2.5}" x2="${x+6}" y2="${y-2.5}"/>
+    <line class="sym" x1="${x-6}" y1="${y+2.5}" x2="${x+6}" y2="${y+2.5}"/>`);
+}
+function symPUMP(x,y,name){
+  return gwrap(name,
+   `<circle class="sym" cx="${x}" cy="${y}" r="7.5"/>
+    <path class="symfill" d="M ${x-3} ${y-4.5} L ${x+4.5} ${y} L ${x-3} ${y+4.5} Z"/>`);
+}
+function symPRV(x,y,name){ // side relief w/ drip
+  return gwrap(name,
+   `<line class="sym" x1="${x}" y1="${y}" x2="${x+7}" y2="${y}"/>
+    <path class="sym" d="M ${x+7} ${y-4} L ${x+12} ${y} L ${x+7} ${y+4} Z"/>
+    <path class="sym" d="M ${x+9.5} ${y-4} l 0 -3 m -2 0 l 4 0"/>
+    <line class="sym" x1="${x+13.5}" y1="${y+1}" x2="${x+13.5}" y2="${y+7}" stroke-dasharray="2 2"/>`);
+}
+function symLWCO(x,y,name){
+  return gwrap(name,
+   `<rect class="sym" x="${x-8}" y="${y-5}" width="16" height="10"/>
+    <text class="lbl" x="${x}" y="${y+2.8}" text-anchor="middle" style="font-size:6.5px">LW</text>`);
+}
+function symAAV(x,y,name){
+  return gwrap(name,
+   `<circle class="sym" cx="${x}" cy="${y}" r="5.5"/>
+    <text class="lbl" x="${x}" y="${y+2.6}" text-anchor="middle" style="font-size:6.5px">A</text>`);
+}
+function symDRAIN(x,y,name){
+  return gwrap(name,
+   `<line class="sym" x1="${x}" y1="${y}" x2="${x+8}" y2="${y}"/>
+    <path class="sym" d="M ${x+8} ${y-3.5} L ${x+12} ${y} L ${x+8} ${y+3.5} Z"/>`);
+}
+function symYSTR(x,y,name){
+  return gwrap(name,
+   `<path class="sym" d="M ${x-7} ${y-4} h14 l-5 4 v6 h-4 v-6 Z"/>`);
+}
+function symAS(x,y,name){
+  return gwrap(name,
+   `<circle class="sym" cx="${x}" cy="${y}" r="8"/>
+    <line class="sym" x1="${x}" y1="${y-8}" x2="${x}" y2="${y-13}"/>
+    <circle class="sym" cx="${x}" cy="${y-16}" r="3.4"/>`);
+}
+function symXT(x,y,name){
+  return gwrap(name,
+   `<rect class="sym" x="${x-9}" y="${y}" width="18" height="24" rx="8"/>
+    <line class="sym" x1="${x-9}" y1="${y+13}" x2="${x+9}" y2="${y+13}" stroke-dasharray="2 2"/>
+    <text class="lbl" x="${x}" y="${y+9}" text-anchor="middle" style="font-size:6.5px">XT</text>`);
+}
+function symBFP(x,y,name){
+  return gwrap(name,
+   `<rect class="sym" x="${x-8}" y="${y-5}" width="16" height="10"/>
+    <path class="symfill" d="M ${x-5} ${y-3} L ${x-1} ${y} L ${x-5} ${y+3} Z"/>
+    <path class="symfill" d="M ${x+1} ${y-3} L ${x+5} ${y} L ${x+1} ${y+3} Z"/>`);
+}
+function symPRFV(x,y,name){
+  return gwrap(name,
+   `<rect class="sym" x="${x-6}" y="${y-5}" width="12" height="10"/>
+    <line class="sym" x1="${x}" y1="${y-5}" x2="${x}" y2="${y-10}"/>
+    <line class="sym" x1="${x-4}" y1="${y-10}" x2="${x+4}" y2="${y-10}"/>`);
+}
+function symTI(x,y,name){
+  return gwrap(name,
+   `<circle class="sym" cx="${x}" cy="${y}" r="5"/>
+    <text class="lbl" x="${x}" y="${y+2.6}" text-anchor="middle" style="font-size:6.5px">T</text>`);
+}
+const ALLSYM = {ISO:symISO,SVC:symSVC,CHK:symCHK,UNION:symUNION,PUMP:symPUMP,PRV:symPRV,
+  LWCO:symLWCO,AAV:symAAV,DRAIN:symDRAIN,TI:symTI,YSTR:symYSTR,AS:symAS,XT:symXT,BFP:symBFP,PRFV:symPRFV};
+Object.keys(ALLSYM).forEach(k=>{
+  const orig = ALLSYM[k];
+  ALLSYM[k] = (x,y,name)=> orig(x,y,name).replace('<g ', `<g data-ctype="${k}" `);
+});
+symISO=ALLSYM.ISO; symSVC=ALLSYM.SVC; symCHK=ALLSYM.CHK; symUNION=ALLSYM.UNION;
+symPUMP=ALLSYM.PUMP; symPRV=ALLSYM.PRV; symLWCO=ALLSYM.LWCO; symAAV=ALLSYM.AAV;
+symDRAIN=ALLSYM.DRAIN; symTI=ALLSYM.TI; symYSTR=ALLSYM.YSTR; symAS=ALLSYM.AS;
+symXT=ALLSYM.XT; symBFP=ALLSYM.BFP; symPRFV=ALLSYM.PRFV;
+const SYM = {ISO:ALLSYM.ISO,SVC:ALLSYM.SVC,CHK:ALLSYM.CHK,UNION:ALLSYM.UNION,PUMP:ALLSYM.PUMP,
+             PRV:ALLSYM.PRV,LWCO:ALLSYM.LWCO,AAV:ALLSYM.AAV,DRAIN:ALLSYM.DRAIN,TI:ALLSYM.TI};
+
+/* ---------- appliance / station config ----------
+   x,w in wall inches. wall=hung (bottom 36 AFF), floor=on slab.
+   cool / hot arrays list components per that appliance's IOM,
+   ordered from header toward the appliance. */
+const STATIONS = [
+ {id:'npe', chip:'NAVIEN NPE-180S2', x:10, w:18, h:29, mount:'wall', dark:false,
+  l1:'NAVIEN', l2:'NPE-180S2', sub:'TANKLESS · 3/4"',
+  conn:'3/4"', coolX:15, hotX:23,
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['UNION','Union / press disconnect'],
+        ['SVC','Isolation / flush service valve (Navien IOM)'],['DRAIN','Purge / flush port']],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+       ['UNION','Union / press disconnect'],['SVC','Isolation / flush service valve (Navien IOM)'],
+       ['PRV','PRV — 30 psi relief on horizontal outlet nipple (Navien IOM)']]},
+
+ {id:'npf', chip:'NAVIEN NPF700 (no branch)', x:32, w:21, h:44, mount:'floor', dark:true,
+  l1:'NAVIEN', l2:'NPF700-060u3BH', sub:'SELF-CONTAINED',
+  nobranch:true,
+  note:'NPF700 — self-contained ~2 gal internal loop, own pump + relief. No manifold connection. Separate scope: relief, condensate, overflow, auto-fill, ductwork.'},
+
+ {id:'nti', chip:'NTI NC085', x:57, w:18, h:42, mount:'floor', dark:true,
+  l1:'NTI', l2:'COMPASS NC085', sub:'BOILER · 1"',
+  conn:'1"', coolX:55, hotX:77.5, portH:30,
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (NTI IOM)'],
+        ['UNION','Union / press disconnect'],['PUMP','Boiler circulator — field supplied (NTI IOM)'],
+        ['LWCO','LWCO — low water cutoff (NTI IOM)']],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (NTI IOM)'],
+       ['PRV','PRV — 30 psi at factory tapping (NTI IOM)']]},
+
+ {id:'loch', chip:'LOCHINVAR WHB055N', x:81, w:18, h:31, mount:'wall', dark:true,
+  l1:'LOCHINVAR', l2:'KNIGHT WHB055N', sub:'BOILER · 1"',
+  conn:'1"', coolX:85.5, hotX:94.5,
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (Lochinvar IOM)'],
+        ['UNION','Union / press disconnect'],['PUMP','Boiler circulator — field supplied (Lochinvar IOM)'],
+        ['LWCO','LWCO — low water cutoff (Lochinvar IOM)']],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (Lochinvar IOM)'],
+       ['PRV','PRV — 30 psi at factory tapping (Lochinvar IOM)']]},
+
+ {id:'laars', chip:'LAARS LFTHF199N', x:104, w:20, h:45, mount:'floor', dark:false,
+  l1:'LAARS', l2:'LFTHF-199N', sub:'BOILER · 1-1/4"',
+  conn:'1-1/4"', coolX:101, hotX:127, portH:32,
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (LAARS IOM)'],
+        ['UNION','Union / press disconnect'],['LWCO','LWCO — low water cutoff (LAARS IOM)']],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (LAARS IOM)'],
+       ['PRV','PRV — 30 psi at factory tapping (LAARS IOM)']]},
+
+ {id:'altac', chip:'ALTAC-136B (CH + DHW)', x:130, w:20, h:31, mount:'wall', dark:false,
+  l1:'ALTA', l2:'ALTAC-136B', sub:'COMBI · 1" / 3/4"',
+  altac:true,
+  chCool:133, chHot:138.5, dhwCool:144, dhwHot:148.5,
+  chCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['UNION','Union / press disconnect'],
+           ['DRAIN','Drain / purge valve (Alta IOM)']],
+  chHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+          ['UNION','Union / press disconnect'],['PRV','PRV — 30 psi at factory tapping (Alta IOM)']],
+  dhwCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['SVC','Isolation / flush service valve — DHW plate HX (Alta IOM)']],
+  dhwHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+           ['SVC','Isolation / flush service valve — DHW plate HX (Alta IOM)'],['PRV','PRV — DHW side relief (Alta IOM)']]},
+
+ {id:'rinnai', chip:'RINNAI CX160iN CASCADE (×2)', x:155, w:34, h:27, mount:'wall', dark:false,
+  cascade:true,
+  u1x:155, u2x:175, uw:14,
+  l1:'RINNAI', l2:'CX160iN', sub:'TANKLESS WH · 3/4" · ×2 CASCADE'},
+
+ {id:'spout', chip:'OPEN-LOOP SPOUT (TANKLESS)', spout:true}
+];
+
+/* Rheem tank */
+const TANK = {x:197, w:32, h:67};
+
+/* ---------- build svg ---------- */
+function pipe(cls, d, name){
+  const pts = [...d.matchAll(/[ML]\s*([\d.\-]+)\s+([\d.\-]+)/g)].map(m=>[+m[1],+m[2]]);
+  PIPES.push({pts, name, group:CUR_GROUP});
+  return `<path class="pipe ${cls}" d="${d}" data-name="${esc(name)}"/>`;
+}
+
+function riser(cls, x, yTop, comps, size, extra){
+  /* vertical run from header to yTop with components spaced along it */
+  const yHdr = cls==='cool' ? fy(COOL_H) : fy(HOT_H);
+  let out = pipe(cls+' thin', `M ${x} ${yHdr} L ${x} ${yTop}`, size);
+  const n = comps.length;
+  const a = Math.min(yHdr,yTop)+10, b = Math.max(yHdr,yTop)-10;
+  comps.forEach((c,i)=>{
+    const t = n===1 ? .5 : i/(n-1);
+    /* order from header upward: comps[0] nearest header */
+    const y = (yHdr > yTop) ? (yHdr-10) - t*((yHdr-10)-(yTop+10))
+                            : (yHdr+10) + t*((yTop-10)-(yHdr+10));
+    out += SYM[c[0]](x, y, c[1]);
+  });
+  return out + (extra||'');
+}
+
+function cabinet(st){
+  const yB = st.mount==='wall' ? fy(36) : fy(0);
+  const yT = st.mount==='wall' ? fy(36+st.h) : fy(st.h);
+  const x = fx(st.x), w = st.w*S, h = Math.abs(yB-yT);
+  const name = st.note || `${st.l1} ${st.l2}`;
+  return `<g data-name="${esc(name)}">
+    <rect class="cab ${st.dark?'dark':''}" x="${x}" y="${yT}" width="${w}" height="${h}"/>
+    <text class="cabtxt" x="${x+w/2}" y="${yT+14}" text-anchor="middle">${st.l1}</text>
+    <text class="cabtxt" x="${x+w/2}" y="${yT+25}" text-anchor="middle">${st.l2}</text>
+    <text class="cabsub" x="${x+w/2}" y="${yT+36}" text-anchor="middle">${st.sub}</text>
+    ${st.id==='laars'||st.id==='altac' ? symPUMP(x+w/2, yB-14, 'Integral circulator (factory)') : ''}
+  </g>`;
+}
+
+function stationSVG(st){
+  CUR_GROUP = st.id;
+  if(st.spout) return `<g class="station" id="st-${st.id}">${spoutSVG()}</g>`;
+  let s = st.cascade ? cascadeCab(st) : cabinet(st);
+  if(st.nobranch) return `<g class="station" id="st-${st.id}">${s}</g>`;
+
+  const portY = st.mount==='wall' ? fy(36) : fy(st.portH||30);
+
+  if(st.altac){
+    const yB = fy(36);
+    s += riser('cool', fx(st.chCool), yB, st.chCoolC, BR);
+    s += riser('hot',  fx(st.chHot),  yB, st.chHotC,  BR);
+    s += riser('cool', fx(st.dhwCool),yB, st.dhwCoolC,BR);
+    s += riser('hot',  fx(st.dhwHot), yB, st.dhwHotC, BR);
+    s += pipe('cool thin',`M ${fx(st.chCool)} ${yB} L ${fx(st.chCool)} ${yB-6}`, ADAPT);
+    s += pipe('hot thin', `M ${fx(st.chHot)} ${yB} L ${fx(st.chHot)} ${yB-6}`, ADAPT);
+    s += pipe('cool thin',`M ${fx(st.dhwCool)} ${yB} L ${fx(st.dhwCool)} ${yB-6}`, ADAPT);
+    s += pipe('hot thin', `M ${fx(st.dhwHot)} ${yB} L ${fx(st.dhwHot)} ${yB-6}`, ADAPT);
+    s += `<text class="lbl" x="${fx((st.chCool+st.chHot)/2)}" y="${fy(37.2)}" text-anchor="middle">CH</text>
+          <text class="lbl" x="${fx((st.dhwCool+st.dhwHot)/2)}" y="${fy(37.2)}" text-anchor="middle">DHW</text>`;
+  } else if(st.cascade){
+    const yB = fy(36), subCool = fy(31), subHot = fy(28);
+    const u1c=st.u1x+3.5, u1h=st.u1x+10.5, u2c=st.u2x+3.5, u2h=st.u2x+10.5;
+    const midC = 170, midH = 174.3;
+    /* per-unit drops w/ service valves + PRV */
+    [ [u1c,'cool'], [u2c,'cool'] ].forEach(([ux])=>{
+      s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR);
+      s += SYM.SVC(fx(ux), yB+12, 'Isolation / flush service valve (Rinnai IOM)');
+    });
+    [ [u1h], [u2h] ].forEach(([ux])=>{
+      s += pipe('hot thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subHot}`, BR);
+      s += SYM.PRV(fx(ux), yB+9, 'PRV — relief on outlet nipple (Rinnai IOM)');
+      s += SYM.SVC(fx(ux), yB+22, 'Isolation / flush service valve (Rinnai IOM)');
+    });
+    /* cascade sub-headers */
+    s += pipe('cool thin', `M ${fx(u1c)} ${subCool} L ${fx(u2c)} ${subCool}`, '1-1/4" copper — cascade cold balance line (Rinnai IOM)');
+    s += pipe('hot thin',  `M ${fx(u1h)} ${subHot} L ${fx(u2h)} ${subHot}`, '1-1/4" copper — cascade hot collection line (Rinnai IOM)');
+    /* common drops to headers */
+    s += riser('cool', fx(midC), subCool, [['ISO','ISO — branch shutoff, 1-1/4"'],['UNION','Union / press disconnect']], BR);
+    s += riser('hot',  fx(midH), subHot,  [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],['UNION','Union / press disconnect']], BR);
+  } else if(st.mount==='floor'){
+    /* risers run beside the cabinet, elbow into side ports */
+    s += riser('cool', fx(st.coolX), portY, st.cool, BR);
+    s += riser('hot',  fx(st.hotX),  portY, st.hot,  BR);
+    s += pipe('cool thin', `M ${fx(st.coolX)} ${portY} L ${fx(st.x)+3} ${portY}`, ADAPT);
+    s += pipe('hot thin',  `M ${fx(st.hotX)} ${portY} L ${fx(st.x+st.w)-3} ${portY}`, ADAPT);
+  } else {
+    s += riser('cool', fx(st.coolX), portY, st.cool, BR);
+    s += riser('hot',  fx(st.hotX),  portY, st.hot,  BR);
+    s += pipe('cool thin', `M ${fx(st.coolX)} ${portY} L ${fx(st.coolX)} ${portY-6}`, ADAPT);
+    s += pipe('hot thin',  `M ${fx(st.hotX)} ${portY} L ${fx(st.hotX)} ${portY-6}`, ADAPT);
+  }
+  return `<g class="station" id="st-${st.id}">${s}</g>`;
+}
+
+function cascadeCab(st){
+  /* two Rinnai cabinets */
+  let out='';
+  [st.u1x, st.u2x].forEach((ux,i)=>{
+    const x=fx(ux), w=st.uw*S, yT=fy(36+st.h), h=st.h*S;
+    out += `<g data-name="${esc('RINNAI CX160iN #'+(i+1))}">
+      <rect class="cab" x="${x}" y="${yT}" width="${w}" height="${h}"/>
+      <text class="cabtxt" x="${x+w/2}" y="${yT+14}" text-anchor="middle">RINNAI</text>
+      <text class="cabtxt" x="${x+w/2}" y="${yT+25}" text-anchor="middle">CX160iN #${i+1}</text>
+      <text class="cabsub" x="${x+w/2}" y="${yT+36}" text-anchor="middle">3/4"</text></g>`;
+  });
+  return out;
+}
+
+function spoutSVG(){
+  const hotY=fy(HOT_H), coolY=fy(COOL_H);
+  let s='';
+  /* discharge: tees off the hot riser junction next to the tank, upstream of the
+     tank hot ISO, runs across the tank face and out the right exterior wall */
+  const tx = fx(TANK.x), tR = fx(TANK.x)+TANK.w*S;
+  const riserX = tx-30, wallX = tR+10;
+  s += pipe('hot', `M ${riserX} ${hotY} L ${wallX+12} ${hotY} L ${wallX+12} ${fy(6)} L ${wallX+26} ${fy(6)}`,
+    '1" copper — open-loop discharge run (tees off hot header at tank, upstream of tank ISO), sloped to exterior spout');
+  s += symISO(tx-22, hotY, 'Spout route valve — NORMALLY CLOSED. Open for open-loop mode; close both tank isolation valves');
+  s += symTI(tx-9, hotY, 'TI — open-loop discharge temperature');
+  s += `<line class="pipe hot thin" x1="${tx+52}" y1="${hotY}" x2="${tx+52}" y2="${hotY+10}" data-name="${esc('Drain-down — low point, inside heated space')}"/>`;
+  s += symDRAIN(tx+52, hotY+12, 'Drain-down valve — winterize spout run in freezing weather');
+  /* exterior wall (right) */
+  s += rawg('Exterior wall penetration — sleeve and seal',
+   `<rect class="sym" x="${wallX}" y="${fy(20)}" width="6" height="${fy(1)-fy(20)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(16)}" x2="${wallX+6}" y2="${fy(18.5)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(10)}" x2="${wallX+6}" y2="${fy(12.5)}"/>
+    <line class="sym" x1="${wallX}" y1="${fy(4)}" x2="${wallX+6}" y2="${fy(6.5)}"/>`);
+  /* frost-free sillcock outside, air gap to grade */
+  const sx=wallX+26, sy=fy(6);
+  s += rawg('Frost-free sillcock w/ integral vacuum breaker — maintain AIR GAP at discharge. Water up to setpoint temp: ANSI Z535 hot-discharge signage',
+   `<path class="sym" d="M ${sx} ${sy} l 7 7"/>
+    <line class="sym" x1="${sx+1}" y1="${sy-3}" x2="${sx+1}" y2="${sy}"/>
+    <circle class="sym" cx="${sx+1}" cy="${sy-6}" r="3"/>
+    <line class="sym" x1="${sx+7}" y1="${sy+8}" x2="${sx+7}" y2="${fy(0)-2}" stroke-dasharray="2 3"/>`);
+  /* open-loop cold supply — full size, bypasses the make-up PRFV */
+  const yS=coolY+14, teeX=fx(4), mkY=coolY+30;
+  s += pipe('supply', `M ${teeX} ${mkY} L ${teeX} ${yS} L ${fx(19.5)} ${yS} L ${fx(19.5)} ${coolY}`,
+    '1" copper — open-loop cold supply. Tees off the city entry upstream of the make-up assembly and bypasses the PRFV: a 20 psi fill valve cannot pass tankless minimum flow per IOM. Shared run upstream of this tee must be full size.');
+  s += `<circle cx="${teeX}" cy="${mkY}" r="3" class="symfill" data-name="${esc('Tee at city entry — one service feeds both make-up and open-loop supply')}"/>`;
+  s += symISO(fx(7.2), yS, 'ISO — open-loop supply valve, NORMALLY CLOSED');
+  s += symBFP(fx(12.6), yS, 'RPZ backflow preventer — open-loop supply (closed loop carries treatment chemicals)');
+  s += symUNION(fx(16.9), yS, 'Union / press disconnect');
+  s += `<text class="lbl" x="${fx(5.5)}" y="${yS-7}">OPEN-LOOP SUPPLY 1"</text>`;
+  return s;
+}
+
+function tankSVG(){
+  CUR_GROUP = 'tank';
+  const x=fx(TANK.x), w=TANK.w*S, yT=fy(TANK.h), h=TANK.h*S, cx=x+w/2;
+  const hotY=fy(HOT_H), coolY=fy(COOL_H);
+  let s = `<g class="tankshell" data-name="RHEEM ST175 — 175 gal buffer tank (TK-1)">
+     <path class="cab" d="M ${x} ${yT+14} Q ${x} ${yT} ${cx} ${yT} Q ${x+w} ${yT} ${x+w} ${yT+14}
+        L ${x+w} ${fy(0)} L ${x} ${fy(0)} Z"/>
+     <text class="cabtxt" x="${cx}" y="${yT+34}" text-anchor="middle">RHEEM ST175</text>
+     <text class="cabsub" x="${cx}" y="${yT+46}" text-anchor="middle">175 GAL BUFFER · TK-1</text></g>`;
+  /* T&P + tank trim */
+  s += SYM.PRV(cx+18, yT+8, 'T&P relief — 150 psi / 210°F, to floor drain');
+  s += symAAV(cx-14, yT+6, 'Automatic air vent — tank top');
+  s += symTI(x+2, fy(50), 'Thermowell T1 — stratification');
+  s += symTI(x+2, fy(34), 'Thermowell T2 — stratification');
+  s += symTI(x+2, fy(18), 'Thermowell T3 — stratification');
+  s += symDRAIN(cx-6, fy(2), 'Tank drain + hand-hole cleanout');
+  /* hot header into upper side tap */
+  s += pipe('hot', `M ${fx(HDR_L)} ${hotY} L ${x-30} ${hotY} L ${x-30} ${fy(56)} L ${x} ${fy(56)}`, HDR_NAME_HOT);
+  s += symAS(x-30, fy(44), 'AS-1 — coalescing air separator w/ AAV (hottest point)');
+  s += '<g class="tankiso">'+symISO(x-30, fy(52)+2, 'ISO — tank hot isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  /* cool from tank bottom tap through strainer + pump to header */
+  s += pipe('cool', `M ${x} ${fy(6)} L ${x-52} ${fy(6)} L ${x-52} ${coolY} L ${fx(HDR_L)} ${coolY}`, HDR_NAME_COOL);
+  s += '<g class="tankiso">'+symISO(x-14, fy(6), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  s += symYSTR(x-32, fy(6)-1, 'Y-strainer + dirt separator, 2" (only strainer on rig)');
+  s += symPUMP(x-52, fy(8.5), 'P-1 — system circulator, ECM variable speed (OFF in open-loop mode — city pressure drives flow)');
+  /* expansion tank + make-up at pump suction */
+  s += pipe('cool thin', `M ${x-64} ${coolY} L ${x-64} ${coolY+16}`, 'Expansion tank branch — point of no pressure change');
+  s += symXT(x-64, coolY+16, 'XT-1 — diaphragm expansion tank');
+  s += pipe('makeup', `M ${fx(0.4)} ${coolY+30} L ${x-80} ${coolY+30} L ${x-80} ${coolY}`, 'Make-up water — city fill, closed-loop mode only');
+  s += symISO(fx(8), coolY+30, 'ISO — make-up shutoff');
+  s += symBFP(fx(14), coolY+30, 'BFP — backflow preventer');
+  s += symPRFV(fx(20), coolY+30, 'PRFV — pressure reducing fill valve, 20 psi');
+  s += symCHK(fx(26), coolY+30, 'CHK — make-up check');
+  s += `<text class="lbl" x="${fx(1)}" y="${coolY+42}">CITY H₂O — MAKE-UP (EXISTING PEX, DASHED)</text>`;
+  return `<g id="tankgrp">${s}</g>`;
+}
+
+function baseSVG(){
+  let s='';
+  /* floor */
+  s += `<line class="floorline" x1="${fx(0)-20}" y1="${fy(0)}" x2="${fx(TANK.x+TANK.w)+52}" y2="${fy(0)}"/>`;
+  /* AFF dims */
+  s += `<line class="dim" x1="${fx(79.5)}" y1="${fy(0)}" x2="${fx(79.5)}" y2="${fy(HOT_H)}"/>
+        <text class="dimtxt" x="${fx(79.5)+3}" y="${fy(COOL_H)+3}">10"</text>
+        <text class="dimtxt" x="${fx(79.5)+3}" y="${fy(HOT_H)+3}">16"</text>`;
+  /* title block */
+  s += `<g class="tblock">
+        <text x="${VBW-16}" y="${VBH-40}" text-anchor="end">HVAC / HYDRONIC TRAINING RIG — WAREHOUSE BAY 2</text>
+        <text x="${VBW-16}" y="${VBH-28}" text-anchor="end">APPLIANCE BRANCH VISUAL · BASIS: CREO WALL ELEVATION 239" O/A</text>
+        <text x="${VBW-16}" y="${VBH-16}" text-anchor="end">COMPONENTS PER OEM IOM — VERIFY AGAINST SUBMITTALS · NO SCALE</text></g>`;
+  return s;
+}
+
+/* ---------- assemble ---------- */
+/* ---------- state, modes, rendering ---------- */
+const state = {};
+STATIONS.forEach(st=>{ state[st.id] = (st.id==='nti'); });   // start with NTI shown
+let mode = 'default';
+const custom = { removed:new Set(), added:[] };   // custom-mode edits, kept in memory
+
+function applyVisibility(){
+  const svgEl = document.querySelector('#stage svg');
+  STATIONS.forEach(st=>{
+    const g = document.getElementById('st-'+st.id);
+    if(g && g.classList) g.classList.toggle('hidden', !state[st.id]);
+  });
+  if(svgEl && svgEl.classList) svgEl.classList.toggle('openloop', !!state.spout);
+}
+
+function renderScene(){
+  COMP_SEQ = 0; PIPES = [];
+  const svgParts = [baseSVG()];
+  STATIONS.forEach(st=>{ if(!st.spout) svgParts.push(stationSVG(st)); });
+  svgParts.push(tankSVG());
+  svgParts.push(stationSVG(STATIONS.find(st=>st.spout)));
+  document.getElementById('stage').innerHTML =
+    `<svg viewBox="0 0 ${VBW} ${VBH}" role="img" aria-label="Wall elevation with selectable appliance branches">${svgParts.join('')}</svg>`;
+  const svgEl = document.querySelector('#stage svg');
+  if(svgEl && svgEl.classList) svgEl.classList.toggle('custom', mode==='custom');
+  if(mode==='custom' && svgEl && svgEl.querySelector){
+    custom.removed.forEach(cid=>{
+      const n = svgEl.querySelector(`[data-cid="${cid}"]`);
+      if(n) n.remove();
+    });
+    custom.added.forEach((a,i)=>{
+      if(!ALLSYM[a.type]) return;
+      const tmp = document.createElementNS('http://www.w3.org/2000/svg','g');
+      tmp.innerHTML = ALLSYM[a.type](a.x, a.y, a.name);
+      const node = tmp.firstElementChild;
+      if(!node) return;
+      node.setAttribute('data-added', i);
+      const host = (a.group==='tank')
+        ? svgEl.querySelector('#tankgrp')
+        : (svgEl.querySelector('#st-'+a.group) || svgEl);
+      host.appendChild(node);
+    });
+  }
+  applyVisibility();
+}
+renderScene();
+
+/* ---------- chips ---------- */
+const chipBox = document.getElementById('chips');
+STATIONS.forEach(st=>{
+  const b = document.createElement('button');
+  b.className='chip'; b.setAttribute('aria-pressed', state[st.id]);
+  b.innerHTML = `<span class="dot"></span>${st.chip}`;
+  const sync = ()=>{
+    b.classList.toggle('on', state[st.id]);
+    b.setAttribute('aria-pressed', state[st.id]);
+  };
+  b.onclick = ()=>{ state[st.id]=!state[st.id]; sync(); applyVisibility(); };
+  chipBox.appendChild(b); sync();
+});
+applyVisibility();
+
+/* ---------- mode control ---------- */
+const mDef = document.getElementById('m-default'), mCus = document.getElementById('m-custom');
+function setMode(m){
+  mode = m;
+  [[mDef,'default'],[mCus,'custom']].forEach(([btn,v])=>{
+    btn.classList.toggle('on', m===v);
+    btn.setAttribute('aria-pressed', m===v);
+  });
+  document.getElementById('bank').hidden = (m!=='custom');
+  renderScene();
+}
+mDef.onclick = ()=>setMode('default');
+mCus.onclick = ()=>setMode('custom');
+
+/* ---------- component bank ---------- */
+const BANK = [['ISO','ISO valve'],['CHK','Check'],['UNION','Union'],['PUMP','Pump'],
+  ['PRV','Relief'],['TI','Thermom.'],['AAV','Air vent'],['DRAIN','Drain'],
+  ['SVC','Svc valve'],['LWCO','LWCO'],['YSTR','Y-strainer'],['BFP','Backflow'],['PRFV','Fill valve']];
+const BANK_NAME = {ISO:'ISO — isolation valve', CHK:'CHK — check valve',
+  UNION:'Union / press disconnect', PUMP:'P — circulator', PRV:'PRV — relief valve',
+  TI:'TI — thermometer', AAV:'AAV — automatic air vent', DRAIN:'Drain valve',
+  SVC:'Isolation / flush service valve', LWCO:'LWCO — low water cutoff',
+  YSTR:'Y-strainer', BFP:'BFP — backflow preventer', PRFV:'PRFV — pressure reducing fill valve'};
+const bankEl = document.getElementById('bank');
+const hint = document.createElement('span');
+hint.id='bankhint';
+hint.textContent = 'DRAG A SYMBOL FROM THE BANK ONTO ANY PIPE TO ADD IT · DRAG A COMPONENT OFF THE PIPING TO REMOVE IT';
+bankEl.appendChild(hint);
+BANK.forEach(([t,label])=>{
+  const b = document.createElement('button');
+  b.className='bankitem'; b.setAttribute('data-btype', t); b.title = BANK_NAME[t];
+  b.innerHTML = `<svg viewBox="0 0 36 30" width="36" height="30">${ALLSYM[t](14,13,BANK_NAME[t])}</svg><span>${label}</span>`;
+  b.addEventListener('pointerdown', e=>{
+    if(mode!=='custom') return;
+    e.preventDefault();
+    drag = {kind:'bank', type:t};
+    ghost = document.createElement('div'); ghost.id='ghost';
+    ghost.innerHTML = `<svg viewBox="0 0 36 30" width="36" height="30">${ALLSYM[t](14,13,'')}</svg>`;
+    document.body.appendChild(ghost);
+    ghost.style.left = (e.clientX+8)+'px'; ghost.style.top = (e.clientY+8)+'px';
+  });
+  bankEl.appendChild(b);
+});
+const resetBtn = document.createElement('button');
+resetBtn.className='chip'; resetBtn.textContent='RESET CUSTOM';
+resetBtn.onclick = ()=>{ custom.removed.clear(); custom.added.length = 0; renderScene(); };
+bankEl.appendChild(resetBtn);
+
+/* ---------- drag and drop ---------- */
+const stage = document.getElementById('stage');
+const SNAP = 14;
+let drag = null, ghost = null;
+
+function svgPoint(e){
+  const svgEl = stage.querySelector('svg');
+  return new DOMPoint(e.clientX, e.clientY).matrixTransform(svgEl.getScreenCTM().inverse());
+}
+function nearestPipe(p){
+  let best = null;
+  PIPES.forEach(pp=>{
+    const vis = pp.group==='tank' ? true : !!state[pp.group];
+    if(!vis) return;
+    for(let i=0;i<pp.pts.length-1;i++){
+      const [x1,y1]=pp.pts[i], [x2,y2]=pp.pts[i+1];
+      const dx=x2-x1, dy=y2-y1, L2=dx*dx+dy*dy;
+      let t = L2 ? ((p.x-x1)*dx+(p.y-y1)*dy)/L2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const qx=x1+t*dx, qy=y1+t*dy;
+      const d = Math.hypot(p.x-qx, p.y-qy);
+      if(!best || d<best.d) best = {x:qx, y:qy, d, group:pp.group};
+    }
+  });
+  return best;
+}
+
+stage.addEventListener('pointerdown', e=>{
+  if(mode!=='custom') return;
+  const svgEl = stage.querySelector('svg');
+  const g = e.target.closest ? e.target.closest('[data-cid]') : null;
+  if(!g || !svgEl || !svgEl.contains(g)) return;
+  e.preventDefault();
+  const p = svgPoint(e);
+  drag = {kind:'comp', node:g, cid:+g.getAttribute('data-cid'),
+          added:g.getAttribute('data-added'), type:g.getAttribute('data-ctype'),
+          name:g.getAttribute('data-name'), sx:p.x, sy:p.y, moved:false};
+});
+document.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  if(drag.kind==='comp'){
+    const p = svgPoint(e);
+    const dx = p.x-drag.sx, dy = p.y-drag.sy;
+    if(Math.hypot(dx,dy) > 3) drag.moved = true;
+    drag.node.setAttribute('transform', `translate(${dx},${dy})`);
+  } else if(ghost){
+    ghost.style.left = (e.clientX+8)+'px'; ghost.style.top = (e.clientY+8)+'px';
+  }
+});
+document.addEventListener('pointerup', e=>{
+  if(!drag) return;
+  const d = drag; drag = null;
+  if(d.kind==='comp'){
+    if(!d.moved){ d.node.removeAttribute('transform'); return; }
+    const p = svgPoint(e), snap = nearestPipe(p);
+    const isAdded = d.added!=null && d.added!=='';
+    if(snap && snap.d<=SNAP && d.type && ALLSYM[d.type]){
+      if(isAdded){
+        const a = custom.added[+d.added];
+        a.x = snap.x; a.y = snap.y; a.group = snap.group;
+      } else {
+        custom.removed.add(d.cid);
+        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:d.name, group:snap.group});
+      }
+    } else {
+      if(isAdded) custom.added.splice(+d.added, 1);
+      else custom.removed.add(d.cid);
+    }
+    renderScene();
+  } else {
+    if(ghost){ ghost.remove(); ghost = null; }
+    const svgEl = stage.querySelector('svg');
+    const r = svgEl.getBoundingClientRect();
+    if(e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom){
+      const p = svgPoint(e), snap = nearestPipe(p);
+      if(snap && snap.d<=SNAP){
+        custom.added.push({type:d.type, x:snap.x, y:snap.y, name:BANK_NAME[d.type], group:snap.group});
+        renderScene();
+      }
+    }
+  }
+});
+
+/* ---------- tooltip ---------- */
+const tip = document.getElementById('tip');
+document.addEventListener('mousemove', e=>{
+  const g = e.target.closest('[data-name]');
+  if(g){
+    tip.textContent = g.getAttribute('data-name');
+    tip.style.opacity = 1;
+    tip.style.left = Math.min(e.clientX+14, innerWidth-270)+'px';
+    tip.style.top  = (e.clientY+16)+'px';
+  } else tip.style.opacity = 0;
+});
+</script>
+</body>
+</html>
