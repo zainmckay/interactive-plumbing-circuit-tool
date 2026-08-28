@@ -97,7 +97,7 @@ const MAN_COOL = '2" copper — COOL manifold (at tank)';
 /* home-run lanes: hot high & descending L-to-R, cool low & ascending L-to-R = zero crossings */
 const LANES = {
  npe:     {hot:{x:29.5, port:36, h:92, tie:164, zone:[42,88]}, cool:{x:15,   port:36, h:9,    zone:[12,34]}},
- loch:    {hot:{x:55.5, port:36, h:89, tie:172, zone:[68,87]}, cool:{x:61.5, port:36, h:12.2, zone:[14.3,34]}},
+ loch:    {hot:{x:55.5, port:36, h:89, tie:172, zone:[68,87]}, cool:{x:58,   port:36, h:12.2, zone:[14.3,33]}},
  laars:   {hot:{x:102.5,port:32, h:86, tie:180, zone:[38,84]}, cool:{x:77.5, port:32, h:15.4, zone:[17.5,30]}},
  altacCH: {hot:{x:109,  port:36, h:83, tie:188, zone:[68,81]}, cool:{x:112,  port:36, h:18.6, zone:[21,34]}},
  altacDHW:{hot:{x:127.5,port:36, h:80, tie:196, zone:[42,78]}, cool:{x:121,  port:36, h:21.8, zone:[24.2,34]}},
@@ -254,12 +254,13 @@ const STATIONS = [
  {id:'loch', chip:'LOCHINVAR WHB055N', x:57, w:18, h:31, mount:'wall', dark:true,
   l1:'LOCHINVAR', l2:'KNIGHT WHB055N', sub:'BOILER · 1"',
   conn:'1"', coolX:85.5, hotX:94.5,
-  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (Lochinvar IOM)'],
-        ['UNION','Union / press disconnect'],['PUMP','Boiler circulator w/ isolation flanges — CONFIRM ships-with vs field-mounted from submittal (Lochinvar)'],
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],
+        ['TI','TI — inlet thermometer at boiler return'],
+        ['UNION','Union / press disconnect'],
         ['LWCO','LWCO — low water cutoff (Lochinvar IOM)']],
-  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],
        ['UNION','Union / press disconnect'],['AAV','Air vent at high point (Lochinvar IOM)'],
-       ['PRV','PRV — 30 psi at factory tapping (Lochinvar IOM)']]},
+       ['PRV','PRV — 30 psi ASME relief. Valve, tee and fittings ship in the install kit — field installed, do not purchase loose (Lochinvar IOM)']]},
 
  {id:'laars', chip:'LAARS LFTHF199N', x:80, w:20, h:45, mount:'floor', dark:false,
   l1:'LAARS', l2:'LFTHF-199N', sub:'BOILER · 1-1/4"',
@@ -346,9 +347,12 @@ function cabinet(st){
 const LTRIM = {
  npe:     {tiC:18.7, bal:23.2, tiH:34.5, pump:28.6,
    pumpName:'Branch circulator w/ isolation flanges — no integral pump (Navien IOM)'},
- loch:    {tiC:66,   bal:70.4, tiH:60.5},
+ loch:    {bal:71.5, tiH:60.5, pump:77,
+   pumpName:'Circulator w/ isolation flanges — factory supplied',
+   extra:[['DRAIN',66,'Drain point — branch low point. Drains lane, pump and (through the branch, upstream of the check) the riser and boiler (Lochinvar IOM)'],
+          ['CHK',61.5,'Flow check — prevents reverse flow during pump off cycle. On the pump discharge, upstream of the boiler (Lochinvar IOM)']]},
  laars:   {tiC:82,   bal:86.3, tiH:107.3, pump:93.5,
-   pumpName:'Branch circulator w/ isolation flanges — internal pump serves the internal low-loss header only (LAARS IOM)'},
+   pumpName:'Circulator w/ isolation flanges — field supplied, boiler-wired'},
  altacCH: {tiC:115.4,bal:118.6,tiH:113.5},
  altacDHW:{tiC:125,  bal:128.4,tiH:132, pump:134.5,
    pumpName:'Branch circulator w/ isolation flanges — DHW plate circuit has no mover (Alta IOM)'},
@@ -358,10 +362,11 @@ const LTRIM = {
 };
 function laneTrim(id){
   const t = LTRIM[id], L = LANES[id];
-  let out = symTI(fx(t.tiC), fy(L.cool.h), 'TI — inlet thermometer')
+  let out = (t.tiC ? symTI(fx(t.tiC), fy(L.cool.h), 'TI — inlet thermometer') : '')
           + symBAL(fx(t.bal), fy(L.cool.h), 'BAL — balancing valve w/ sight flow meter (set to station GPM)')
           + symTI(fx(t.tiH), fy(L.hot.h), 'TI — outlet thermometer');
   if(t.pump) out += symPUMP(fx(t.pump), fy(L.cool.h), t.pumpName, 180);
+  if(t.extra) t.extra.forEach(([ty,px,nm])=>{ out += ALLSYM[ty](fx(px), fy(L.cool.h), nm); });
   return out;
 }
 function stationSVG(st){
