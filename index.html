@@ -92,8 +92,8 @@ const VBW = 1170, VBH = 540;
 
 const HM_Y = 96, HM_L = 160, HM_DROP = 222;   // hot manifold: elevation, left cap, tank drop x (in)
 const CM_X = 191.5, CM_TOP = 30, RUN_Y = 2.5; // cool manifold x, top, suction-run elevation (in)
-const MAN_HOT  = '2" copper — HOT manifold (at tank)';
-const MAN_COOL = '2" copper — COOL manifold (at tank)';
+const MAN_HOT  = '2" copper — hot manifold';
+const MAN_COOL = '2" copper — cool manifold';
 /* home-run lanes: hot high & descending L-to-R, cool low & ascending L-to-R = zero crossings */
 const LANES = {
  npe:     {hot:{x:29.5, port:36, h:92, tie:164, zone:[42,88]}, cool:{x:15,   port:36, h:9,    zone:[12,34]}},
@@ -229,59 +229,60 @@ const STATIONS = [
  {id:'npe', chip:'NAVIEN NPE-180S2', x:10, w:18, h:29, mount:'wall', dark:false,
   l1:'NAVIEN', l2:'NPE-180S2', sub:'TANKLESS · 3/4"',
   conn:'3/4"', coolX:15, hotX:23,
-  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / flush port — hose bibb on tee (descale supply)'],
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / flush port'],
         ['UNION','Union / press disconnect']],
-  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
        ['UNION','Union / press disconnect'],
-       ['DRAIN','Drain / flush port — hose bibb on tee (descale return)'],
-       ['PRV','PRV — 150 psi water-heater relief on horizontal nipple at outlet. NO VALVE between relief and appliance']]},
+       ['DRAIN','Drain / flush port'],
+       ['PRV','PRV — 150 psi']]},
 
  {id:'npf', chip:'NAVIEN NPF700 (no branch)', x:32, w:21, h:44, mount:'floor', dark:true,
   l1:'NAVIEN', l2:'NPF700-060u3BH', sub:'SELF-CONTAINED',
   nobranch:true,
-  note:'NPF700 — self-contained ~2 gal internal loop, own pump + relief. No manifold connection. Separate scope: relief, condensate, overflow, auto-fill, ductwork.'},
+  note:'NAVIEN NPF700-060u3BH — not on this manifold, separate scope'},
 
  {id:'nti', chip:'NTI NC085', x:169, w:18, h:42, mount:'floor', dark:true,
   l1:'NTI', l2:'COMPASS NC085', sub:'BOILER · 1"',
   conn:'1"', coolX:55, hotX:77.5, portH:30,
-  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (NTI IOM)'],
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain valve'],
         ['UNION','Union / press disconnect'],
         ['LWCO','LWCO — low water cutoff (NTI IOM)']],
-  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
-       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (NTI IOM)'],
-       ['PRV','PRV — 30 psi at factory tapping (NTI IOM)']]},
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
+       ['UNION','Union / press disconnect'],['AAV','AAV — automatic air vent'],
+       ['PRV','PRV — 30 psi, ships with boiler']]},
 
  {id:'loch', chip:'LOCHINVAR WHB055N', x:57, w:18, h:31, mount:'wall', dark:true,
   l1:'LOCHINVAR', l2:'KNIGHT WHB055N', sub:'BOILER · 1"',
   conn:'1"', coolX:85.5, hotX:94.5,
   cool:[['ISO','ISO — branch shutoff, 1-1/4"'],
-        ['TI','TI — inlet thermometer at boiler return'],
+        ['DRAIN','Drain valve'],
+        ['TI','TI — inlet thermometer'],
         ['UNION','Union / press disconnect'],
-        ['LWCO','LWCO — low water cutoff (Lochinvar IOM)']],
+        ['LWCO','LWCO — low water cutoff']],
   hot:[['ISO','ISO — branch shutoff, 1-1/4"'],
-       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (Lochinvar IOM)'],
-       ['PRV','PRV — 30 psi ASME relief. Valve, tee and fittings ship in the install kit — field installed, do not purchase loose (Lochinvar IOM)']]},
+       ['UNION','Union / press disconnect'],['AAV','AAV — automatic air vent'],
+       ['PRV','PRV — 30 psi, ships with boiler']]},
 
  {id:'laars', chip:'LAARS LFTHF199N', x:80, w:20, h:45, mount:'floor', dark:false,
   l1:'LAARS', l2:'LFTHF-199N', sub:'BOILER · 1-1/4"',
   conn:'1-1/4"', coolX:101, hotX:127, portH:32,
-  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain / purge valve (LAARS IOM)'],
-        ['UNION','Union / press disconnect'],['LWCO','LWCO — low water cutoff (LAARS IOM)']],
-  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
-       ['UNION','Union / press disconnect'],['AAV','Air vent at high point (LAARS IOM)'],
-       ['PRV','PRV — 30 psi at factory tapping (LAARS IOM)']]},
+  cool:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain valve'],
+        ['UNION','Union / press disconnect'],['LWCO','LWCO — low water cutoff']],
+  hot:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
+       ['UNION','Union / press disconnect'],['AAV','AAV — automatic air vent'],
+       ['PRV','PRV — 30 psi']]},
 
  {id:'altac', chip:'ALTAC-136B (CH + DHW)', x:106, w:20, h:31, mount:'wall', dark:false,
   l1:'ALTA', l2:'ALTAC-136B', sub:'COMBI · 1" / 3/4"',
   altac:true,
   chCool:133, chHot:138.5, dhwCool:144, dhwHot:148.5,
-  chCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['UNION','Union / press disconnect'],
-           ['DRAIN','Drain / purge valve (Alta IOM)']],
-  chHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
-          ['UNION','Union / press disconnect'],['PRV','PRV — 30 psi at factory tapping (Alta IOM)']],
-  dhwCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['SVC','Isolation / flush service valve — DHW plate HX (Alta IOM)']],
-  dhwHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],
-           ['SVC','Isolation / flush service valve — DHW plate HX (Alta IOM)'],['PRV','PRV — 150 psi water-heater side relief — confirm w/ U.S. Boiler (Alta IOM)']]},
+  chCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['DRAIN','Drain valve'],
+           ['UNION','Union / press disconnect']],
+  chHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
+          ['UNION','Union / press disconnect'],['PRV','PRV — 30 psi, ships loose in parts carton']],
+  dhwCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['SVC','Service valve — isolation / flush']],
+  dhwHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
+           ['SVC','Service valve — isolation / flush'],['PRV','PRV — DHW service relief, 145 psi max']]},
 
  {id:'rinnai', chip:'RINNAI CX160iN CASCADE (×2)', x:131, w:34, h:27, mount:'wall', dark:false,
   cascade:true,
@@ -339,25 +340,25 @@ function cabinet(st){
     <text class="cabtxt" x="${x+w/2}" y="${yT+25}" text-anchor="middle">${st.l2}</text>
     <text class="cabsub" x="${x+w/2}" y="${yT+36}" text-anchor="middle">${st.sub}</text>
     ${st.id==='laars'||st.id==='altac'||st.id==='nti' ? symPUMP(x+w/2, yB-14,
-      st.id==='nti' ? 'Integral ECM circulator (factory) — set internal low-loss header valve to BYPASS (NTI IOM)'
-                    : 'Integral circulator (factory)') : ''}
+      st.id==='nti' ? 'Integral circulator — factory installed'
+                    : 'Integral circulator — factory installed') : ''}
   </g>`;
 }
 
 const LTRIM = {
  npe:     {tiC:18.7, bal:23.2, tiH:34.5, pump:28.6,
-   pumpName:'Branch circulator w/ isolation flanges — no integral pump (Navien IOM)'},
+   pumpName:'Circulator w/ isolation flanges — field supplied'},
  loch:    {bal:71.5, tiH:60.5, pump:77,
    pumpName:'Circulator w/ isolation flanges — factory supplied',
-   extra:[['DRAIN',66,'Drain point — branch low point. Drains lane, pump and (through the branch, upstream of the check) the riser and boiler (Lochinvar IOM)'],
-          ['CHK',61.5,'Flow check — prevents reverse flow during pump off cycle. On the pump discharge, upstream of the boiler (Lochinvar IOM)']]},
+   extra:[['CHK',63.5,'CHK — flow check']]},
  laars:   {tiC:82,   bal:86.3, tiH:107.3, pump:93.5,
    pumpName:'Circulator w/ isolation flanges — field supplied, boiler-wired'},
- altacCH: {tiC:115.4,bal:118.6,tiH:113.5},
+ altacCH: {tiC:115,  bal:130,  tiH:113.5, pump:139,
+   pumpName:'Circulator w/ isolation flanges — field supplied'},
  altacDHW:{tiC:125,  bal:128.4,tiH:132, pump:134.5,
-   pumpName:'Branch circulator w/ isolation flanges — DHW plate circuit has no mover (Alta IOM)'},
+   pumpName:'Circulator w/ isolation flanges — field supplied'},
  rin:     {tiC:144.5,bal:154.5,tiH:152.5, pump:149.5,
-   pumpName:'Branch circulator w/ isolation flanges — tankless, no integral pump (Rinnai IOM)'},
+   pumpName:'Circulator w/ isolation flanges — field supplied'},
  nti:     {tiC:179.3,bal:182.6,tiH:183}
 };
 function laneTrim(id){
@@ -397,19 +398,19 @@ function stationSVG(st){
     /* per-unit drops w/ service valves + PRV */
     [u1c, u2c].forEach(ux=>{
       s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR, -1);
-      s += SYM.SVC(fx(ux), yB+12, 'Isolation / flush service valve (Rinnai IOM)');
+      s += SYM.SVC(fx(ux), yB+12, 'Service valve — isolation / flush');
     });
     [u1h, u2h].forEach(ux=>{
       s += pipe('hot thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subHot}`, BR);
-      s += SYM.PRV(fx(ux), yB+9, 'PRV — 150 psi relief on outlet nipple (Rinnai IOM)');
-      s += SYM.SVC(fx(ux), yB+22, 'Isolation / flush service valve (Rinnai IOM)');
+      s += SYM.PRV(fx(ux), yB+9, 'PRV — 150 psi');
+      s += SYM.SVC(fx(ux), yB+22, 'Service valve — isolation / flush');
     });
     /* cascade sub-headers */
-    s += pipe('cool thin', `M ${fx(u1c)} ${subCool} L ${fx(u2c)} ${subCool}`, '1-1/4" copper — cascade cold balance line (Rinnai IOM)');
-    s += pipe('hot thin',  `M ${fx(u1h)} ${subHot} L ${fx(u2h)} ${subHot}`, '1-1/4" copper — cascade hot collection line (Rinnai IOM)');
+    s += pipe('cool thin', `M ${fx(u1c)} ${subCool} L ${fx(u2c)} ${subCool}`, '1-1/4" copper — cascade cold balance line');
+    s += pipe('hot thin',  `M ${fx(u1h)} ${subHot} L ${fx(u2h)} ${subHot}`, '1-1/4" copper — cascade hot collection line');
     /* common home runs */
     s += hotRun(LANES.rin.hot,
-      [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','Spring check — blocks ghost flow'],['UNION','Union / press disconnect']]);
+      [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],['UNION','Union / press disconnect']]);
     const rc = LANES.rin.cool;
     s += pipe('cool thin', `M ${fx(rc.x)} ${fy(rc.port)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR, -1);
     s += symISO(fx(rc.x), fy(28), 'ISO — branch shutoff, 1-1/4"');
@@ -420,9 +421,9 @@ function stationSVG(st){
     const C = L.cool, H = L.hot;
     s += coolRun(C, []);
     s += symUNION(fx(169.4), fy(C.h), 'Union / press disconnect');
-    s += symDRAIN(fx(171.8), fy(C.h), 'Drain / purge valve (NTI IOM)');
+    s += symDRAIN(fx(171.8), fy(C.h), 'Drain valve');
     s += symISO(fx(176), fy(C.h), 'ISO — branch shutoff, 1-1/4"');
-    s += hotRun(H, st.hot.concat([['LWCO','LWCO — low water cutoff, remote-mounted at the boiler waterline (NTI IOM)']]));
+    s += hotRun(H, st.hot.concat([['LWCO','LWCO — low water cutoff, field supplied']]));
     s += pipe('cool thin', `M ${fx(C.x)} ${fy(C.port)} L ${fx(st.x)+3} ${fy(C.port)}`, ADAPT);
     s += pipe('hot thin',  `M ${fx(H.x)} ${fy(H.port)} L ${fx(H.x)} ${fy(H.port+1.5)}`, ADAPT);
     s += laneTrim('nti');
@@ -463,20 +464,20 @@ function spoutSVG(){
      hot ISO), out the right exterior wall, down to the spout */
   const wallX = fx(TANK.x)+TANK.w*S+10;
   s += pipe('hot', `M ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(234)} ${fy(HM_Y)} L ${fx(234)} ${fy(6)} L ${fx(237.2)} ${fy(6)}`,
-    '1" copper — open-loop discharge (tees off hot manifold upstream of tank ISO), sloped to exterior spout');
-  s += symISO(fx(225.4), fy(HM_Y), 'Spout route valve — NORMALLY CLOSED. Open for open-loop mode; close both tank isolation valves');
-  s += symTI(fx(229), fy(HM_Y), 'TI — open-loop discharge temperature');
-  s += `<line class="pipe hot thin" x1="${fx(227.2)}" y1="${fy(HM_Y)}" x2="${fx(227.2)}" y2="${fy(HM_Y)+9}" data-name="${esc('Drain-down — inside heated space')}"/>`;
-  s += symDRAIN(fx(227.2), fy(HM_Y)+11, 'Drain-down valve — winterize spout run in freezing weather');
+    '1" copper — open-loop discharge');
+  s += symISO(fx(225.4), fy(HM_Y), 'Spout route valve — NORMALLY CLOSED');
+  s += symTI(fx(229), fy(HM_Y), 'TI — discharge thermometer');
+  s += `<line class="pipe hot thin" x1="${fx(227.2)}" y1="${fy(HM_Y)}" x2="${fx(227.2)}" y2="${fy(HM_Y)+9}" data-name="${esc('Drain-down stub')}"/>`;
+  s += symDRAIN(fx(227.2), fy(HM_Y)+11, 'Drain-down valve — winterize spout run');
   /* exterior wall (right) */
-  s += rawg('Exterior wall penetration — sleeve and seal',
+  s += rawg('Exterior wall penetration',
    `<rect class="sym" x="${wallX}" y="${fy(102)}" width="6" height="${fy(1)-fy(102)}"/>
     <line class="sym" x1="${wallX}" y1="${fy(88)}" x2="${wallX+6}" y2="${fy(92)}"/>
     <line class="sym" x1="${wallX}" y1="${fy(58)}" x2="${wallX+6}" y2="${fy(62)}"/>
     <line class="sym" x1="${wallX}" y1="${fy(28)}" x2="${wallX+6}" y2="${fy(32)}"/>`);
   /* frost-free sillcock outside, air gap to grade */
   const sx=fx(237.2), sy=fy(6);
-  s += rawg('Frost-free sillcock w/ integral vacuum breaker — maintain AIR GAP at discharge. Water up to setpoint temp: ANSI Z535 hot-discharge signage',
+  s += rawg('Frost-free sillcock w/ vacuum breaker — maintain air gap',
    `<path class="sym" d="M ${sx} ${sy} l 7 7"/>
     <line class="sym" x1="${sx+1}" y1="${sy-3}" x2="${sx+1}" y2="${sy}"/>
     <circle class="sym" cx="${sx+1}" cy="${sy-6}" r="3"/>
@@ -484,10 +485,10 @@ function spoutSVG(){
   /* open-loop cold supply — tees off the city entry, runs low, enters the cool
      manifold directly */
   s += pipe('supply', `M ${fx(4)} ${fy(6.5)} L ${fx(4)} ${fy(1.2)} L ${fx(181.5)} ${fy(1.2)} L ${fx(181.5)} ${fy(10.6)} L ${fx(CM_X)} ${fy(10.6)}`,
-    '1" copper — open-loop cold supply. Tees off the city entry, bypasses the make-up PRFV (a 20 psi fill valve cannot pass tankless minimum flow per IOM), and enters the cool manifold directly. Shared run upstream of the tee must be full size.');
-  s += `<circle cx="${fx(4)}" cy="${fy(6.5)}" r="3" class="symfill" data-name="${esc('Tee at city entry — one service feeds both make-up and open-loop supply')}"/>`;
+    '1" copper — open-loop cold supply');
+  s += `<circle cx="${fx(4)}" cy="${fy(6.5)}" r="3" class="symfill" data-name="${esc('Tee — city entry')}"/>`;
   s += symISO(fx(7.2), fy(1.2), 'ISO — open-loop supply valve, NORMALLY CLOSED');
-  s += symBFP(fx(12.6), fy(1.2), 'RPZ backflow preventer — open-loop supply (closed loop carries treatment chemicals)');
+  s += symBFP(fx(12.6), fy(1.2), 'RPZ backflow preventer');
   s += symUNION(fx(16.9), fy(1.2), 'Union / press disconnect');
   s += `<text class="lbl" x="${fx(34)}" y="${fy(0.2)}">OPEN-LOOP SUPPLY 1"</text>`;
   return s;
@@ -503,24 +504,24 @@ function tankSVG(){
      <text class="cabtxt" x="${cx}" y="${yT+34}" text-anchor="middle">RHEEM ST175</text>
      <text class="cabsub" x="${cx}" y="${yT+46}" text-anchor="middle">175 GAL BUFFER · TK-1</text></g>`;
   /* T&P + tank trim */
-  s += SYM.PRV(cx+18, yT+8, 'T&P relief — 150 psi / 210°F, to floor drain');
-  s += symAAV(cx-14, yT+6, 'Automatic air vent — tank top');
+  s += SYM.PRV(cx+18, yT+8, 'T&P relief — 150 psi / 210°F');
+  s += symAAV(cx-14, yT+6, 'AAV — automatic air vent');
   s += symTI(x+2, fy(50), 'Thermowell T1 — stratification');
   s += symTI(x+2, fy(34), 'Thermowell T2 — stratification');
   s += symTI(x+2, fy(18), 'Thermowell T3 — stratification');
   s += symDRAIN(cx-6, fy(2), 'Tank drain + hand-hole cleanout');
   /* HOT manifold above the tank, dropping into the top tap */
   s += pipe('hot', `M ${fx(HM_L)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(67)}`, MAN_HOT);
-  s += symAS(fx(HM_DROP), fy(88), 'AS-1 — coalescing air separator w/ AAV (hottest point)');
-  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2" — CLOSE for open-loop mode')+'</g>';
+  s += symAS(fx(HM_DROP), fy(88), 'AS-1 — air separator');
+  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2"')+'</g>';
   /* COOL manifold beside the tank, fed from the bottom tap through strainer + P-1 */
   s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
-  s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2" — CLOSE for open-loop mode')+'</g>';
-  s += symYSTR(fx(CM_X), fy(5.6), 'Y-strainer + dirt separator, 2" (only strainer on rig)');
+  s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2"')+'</g>';
+  s += symYSTR(fx(CM_X), fy(5.6), 'Y-strainer + dirt separator, 2"');
   /* expansion tank + make-up share one stub at the manifold base — point of no pressure change */
-  s += pipe('cool thin', `M ${fx(CM_X)} ${fy(4)} L ${fx(186)} ${fy(4)}`, 'Expansion / make-up connection — point of no pressure change');
-  s += symXT(fx(186), fy(5.5), 'XT-1 — diaphragm expansion tank, floor mounted');
-  s += pipe('makeup', `M ${fx(0.4)} ${fy(6.5)} L ${fx(186)} ${fy(6.5)} L ${fx(186)} ${fy(5.3)}`, 'Make-up water — city fill, closed-loop mode only');
+  s += pipe('cool thin', `M ${fx(CM_X)} ${fy(4)} L ${fx(186)} ${fy(4)}`, 'Expansion / make-up connection');
+  s += symXT(fx(186), fy(5.5), 'XT-1 — expansion tank');
+  s += pipe('makeup', `M ${fx(0.4)} ${fy(6.5)} L ${fx(186)} ${fy(6.5)} L ${fx(186)} ${fy(5.3)}`, 'Make-up water — city fill');
   s += symISO(fx(8), fy(6.5), 'ISO — make-up shutoff');
   s += symBFP(fx(14), fy(6.5), 'BFP — backflow preventer');
   s += symPRFV(fx(20), fy(6.5), 'PRFV — pressure reducing fill valve, 20 psi');
