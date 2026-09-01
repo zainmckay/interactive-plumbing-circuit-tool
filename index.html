@@ -205,8 +205,8 @@ function symTI(x,y,name){
 function symBAL(x,y,name){
   return gwrap(name,
    `<path class="sym" d="M ${x-6} ${y} L ${x} ${y-5} L ${x+6} ${y} L ${x} ${y+5} Z"/>
-    <line class="sym" x1="${x}" y1="${y-5}" x2="${x}" y2="${y-8}"/>
-    <circle class="sym" cx="${x}" cy="${y-10.5}" r="2.8"/>`);
+    <line class="sym" x1="${x}" y1="${y-5}" x2="${x}" y2="${y-7}"/>
+    <circle class="sym" cx="${x}" cy="${y-9.4}" r="2.4"/>`);
 }
 const ALLSYM = {ISO:symISO,SVC:symSVC,CHK:symCHK,UNION:symUNION,PUMP:symPUMP,PRV:symPRV,
   LWCO:symLWCO,AAV:symAAV,DRAIN:symDRAIN,TI:symTI,YSTR:symYSTR,AS:symAS,XT:symXT,BFP:symBFP,PRFV:symPRFV,BAL:symBAL};
@@ -280,9 +280,13 @@ const STATIONS = [
            ['UNION','Union / press disconnect']],
   chHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
           ['UNION','Union / press disconnect'],['PRV','PRV — 30 psi, ships loose in parts carton']],
-  dhwCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],['SVC','Service valve — isolation / flush']],
+  dhwCoolC:[['ISO','ISO — branch shutoff, 1-1/4"'],
+            ['DRAIN','Drain valve — plate HX back flush'],
+            ['UNION','Union / press disconnect']],
   dhwHotC:[['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],
-           ['SVC','Service valve — isolation / flush'],['PRV','PRV — DHW service relief, 145 psi max']]},
+           ['UNION','Union / press disconnect'],
+           ['DRAIN','Drain valve — plate HX back flush'],
+           ['PRV','PRV — DHW service relief, 145 psi max']]},
 
  {id:'rinnai', chip:'RINNAI CX160iN CASCADE (×2)', x:131, w:34, h:27, mount:'wall', dark:false,
   cascade:true,
@@ -353,9 +357,9 @@ const LTRIM = {
    extra:[['CHK',63.5,'CHK — flow check']]},
  laars:   {tiC:82,   bal:86.3, tiH:107.3, pump:93.5,
    pumpName:'Circulator w/ isolation flanges — field supplied, boiler-wired'},
- altacCH: {tiC:115,  bal:130,  tiH:113.5, pump:139,
+ altacCH: {tiC:115,  bal:130,  tiH:113.5, pump:137,
    pumpName:'Circulator w/ isolation flanges — field supplied'},
- altacDHW:{tiC:125,  bal:128.4,tiH:132, pump:134.5,
+ altacDHW:{tiC:143,  bal:149,  tiH:132, pump:156,
    pumpName:'Circulator w/ isolation flanges — field supplied'},
  rin:     {tiC:144.5,bal:154.5,tiH:152.5, pump:149.5,
    pumpName:'Circulator w/ isolation flanges — field supplied'},
