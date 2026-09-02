@@ -101,7 +101,7 @@ const LANES = {
  laars:   {hot:{x:102.5,port:32, h:86, tie:180, zone:[38,84]}, cool:{x:77.5, port:32, h:15.4, zone:[17.5,30]}},
  altacCH: {hot:{x:109,  port:36, h:83, tie:188, zone:[68,81]}, cool:{x:112,  port:36, h:18.6, zone:[21,34]}},
  altacDHW:{hot:{x:127.5,port:36, h:80, tie:196, zone:[42,78]}, cool:{x:121,  port:36, h:21.8, zone:[24.2,34]}},
- rin:     {hot:{x:148,  port:28, h:77, tie:204, zone:[64,75]}, cool:{x:138,  port:31, h:25}},
+ rin:     {hot:{x:148,  port:29, h:77, tie:204, zone:[64,75]}, cool:{x:138,  port:34, h:25}},
  nti:     {hot:{x:178,  port:30, h:74, tie:212, zone:[46,72]}, cool:{x:166.5,port:30, h:28.2}}
 };
 const BR = '1-1/4" copper — branch';
@@ -159,6 +159,12 @@ function symLWCO(x,y,name){
    `<rect class="sym" x="${x-8}" y="${y-5}" width="16" height="10"/>
     <text class="lbl" x="${x}" y="${y+2.8}" text-anchor="middle" style="font-size:6.5px">LW</text>`);
 }
+function symMAV(x,y,name){
+  return gwrap(name,
+   `<circle class="sym" cx="${x}" cy="${y}" r="5.5"/>
+    <line class="sym" x1="${x}" y1="${y-5.5}" x2="${x}" y2="${y-9}"/>
+    <path class="symfill" d="M ${x-3.5} ${y-9} L ${x+3.5} ${y-9} L ${x} ${y-13} Z"/>`);
+}
 function symAAV(x,y,name){
   return gwrap(name,
    `<circle class="sym" cx="${x}" cy="${y}" r="5.5"/>
@@ -209,7 +215,7 @@ function symBAL(x,y,name){
     <circle class="sym" cx="${x}" cy="${y-9.4}" r="2.4"/>`);
 }
 const ALLSYM = {ISO:symISO,SVC:symSVC,CHK:symCHK,UNION:symUNION,PUMP:symPUMP,PRV:symPRV,
-  LWCO:symLWCO,AAV:symAAV,DRAIN:symDRAIN,TI:symTI,YSTR:symYSTR,AS:symAS,XT:symXT,BFP:symBFP,PRFV:symPRFV,BAL:symBAL};
+  LWCO:symLWCO,AAV:symAAV,DRAIN:symDRAIN,TI:symTI,YSTR:symYSTR,AS:symAS,XT:symXT,BFP:symBFP,PRFV:symPRFV,BAL:symBAL,MAV:symMAV};
 Object.keys(ALLSYM).forEach(k=>{
   const orig = ALLSYM[k];
   ALLSYM[k] = (x,y,name,...a)=> orig(x,y,name,...a).replace('<g ', `<g data-ctype="${k}" `);
@@ -217,7 +223,7 @@ Object.keys(ALLSYM).forEach(k=>{
 symISO=ALLSYM.ISO; symSVC=ALLSYM.SVC; symCHK=ALLSYM.CHK; symUNION=ALLSYM.UNION;
 symPUMP=ALLSYM.PUMP; symPRV=ALLSYM.PRV; symLWCO=ALLSYM.LWCO; symAAV=ALLSYM.AAV;
 symDRAIN=ALLSYM.DRAIN; symTI=ALLSYM.TI; symYSTR=ALLSYM.YSTR; symAS=ALLSYM.AS;
-symXT=ALLSYM.XT; symBFP=ALLSYM.BFP; symPRFV=ALLSYM.PRFV; symBAL=ALLSYM.BAL;
+symXT=ALLSYM.XT; symBFP=ALLSYM.BFP; symPRFV=ALLSYM.PRFV; symBAL=ALLSYM.BAL; symMAV=ALLSYM.MAV;
 const SYM = {ISO:ALLSYM.ISO,SVC:ALLSYM.SVC,CHK:ALLSYM.CHK,UNION:ALLSYM.UNION,PUMP:ALLSYM.PUMP,
              PRV:ALLSYM.PRV,LWCO:ALLSYM.LWCO,AAV:ALLSYM.AAV,DRAIN:ALLSYM.DRAIN,TI:ALLSYM.TI};
 
@@ -361,7 +367,7 @@ const LTRIM = {
    pumpName:'Circulator w/ isolation flanges — field supplied'},
  altacDHW:{tiC:143,  bal:149,  tiH:132, pump:156,
    pumpName:'Circulator w/ isolation flanges — field supplied'},
- rin:     {tiC:144.5,bal:154.5,tiH:152.5, pump:149.5,
+ rin:     {tiC:144.5,bal:150,  tiH:152.5, pump:157,
    pumpName:'Circulator w/ isolation flanges — field supplied'},
  nti:     {tiC:179.3,bal:182.6,tiH:183}
 };
@@ -397,28 +403,36 @@ function stationSVG(st){
     s += `<text class="lbl" x="${fx(110.5)}" y="${fy(38.6)}" text-anchor="middle">CH</text>
           <text class="lbl" x="${fx(124.2)}" y="${fy(38.6)}" text-anchor="middle">DHW</text>`;
   } else if(st.cascade){
-    const yB = fy(36), subCool = fy(31), subHot = fy(28);
+    const yB = fy(42), subCool = fy(34), subHot = fy(29);
     const u1c=st.u1x+3.5, u1h=st.u1x+10.5, u2c=st.u2x+3.5, u2h=st.u2x+10.5;
-    /* per-unit drops w/ service valves + PRV */
+    /* per-unit inlet drops: union and flush port at the unit */
     [u1c, u2c].forEach(ux=>{
       s += pipe('cool thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subCool}`, BR, -1);
-      s += SYM.SVC(fx(ux), yB+12, 'Service valve — isolation / flush');
+      s += SYM.UNION(fx(ux), yB+9,  'Union / press disconnect');
+      s += SYM.DRAIN(fx(ux), yB+21, 'Drain / flush port');
     });
+    /* per-unit outlet drops: relief at the unit, then flush and union */
     [u1h, u2h].forEach(ux=>{
       s += pipe('hot thin', `M ${fx(ux)} ${yB} L ${fx(ux)} ${subHot}`, BR);
-      s += SYM.PRV(fx(ux), yB+9, 'PRV — 150 psi');
-      s += SYM.SVC(fx(ux), yB+22, 'Service valve — isolation / flush');
+      s += SYM.PRV(fx(ux),   yB+8,  'PRV — 150 psi');
+      s += SYM.DRAIN(fx(ux), yB+20, 'Drain / flush port');
+      s += SYM.UNION(fx(ux), yB+43, 'Union / press disconnect');
     });
-    /* cascade sub-headers */
+    /* cascade sub-headers, with per-unit isolation and checks at each tee */
     s += pipe('cool thin', `M ${fx(u1c)} ${subCool} L ${fx(u2c)} ${subCool}`, '1-1/4" copper — cascade cold balance line');
     s += pipe('hot thin',  `M ${fx(u1h)} ${subHot} L ${fx(u2h)} ${subHot}`, '1-1/4" copper — cascade hot collection line');
+    s += symISO(fx(136.2), subCool, 'ISO — CX160iN #1 inlet shutoff');
+    s += symISO(fx(152.6), subCool, 'ISO — CX160iN #2 inlet shutoff');
+    s += symCHK(fx(143),   subHot,  'CHK — #1 outlet check, blocks back-feed through the idle unit');
+    s += symISO(fx(145.8), subHot,  'ISO — CX160iN #1 outlet shutoff');
+    s += symISO(fx(157.5), subHot,  'ISO — CX160iN #2 outlet shutoff');
+    s += symCHK(fx(160.3), subHot,  'CHK — #2 outlet check, blocks back-feed through the idle unit');
     /* common home runs */
     s += hotRun(LANES.rin.hot,
       [['ISO','ISO — branch shutoff, 1-1/4"'],['CHK','CHK — spring check'],['UNION','Union / press disconnect']]);
     const rc = LANES.rin.cool;
-    s += pipe('cool thin', `M ${fx(rc.x)} ${fy(rc.port)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR, -1);
-    s += symISO(fx(rc.x), fy(28), 'ISO — branch shutoff, 1-1/4"');
-    s += symUNION(fx(141.5), fy(rc.h), 'Union / press disconnect');
+    s += pipe('cool thin', `M ${fx(rc.x)} ${fy(34)} L ${fx(rc.x)} ${fy(rc.h)} L ${fx(CM_X)} ${fy(rc.h)}`, BR, -1);
+    s += symISO(fx(rc.x), fy(31), 'ISO — branch shutoff, 1-1/4"');
     s += symISO(fx(189), fy(rc.h), 'ISO — cool manifold tie-in shutoff, 1-1/4"');
     s += laneTrim('rin');
   } else if(st.id==='nti'){
@@ -451,7 +465,7 @@ function cascadeCab(st){
   /* two Rinnai cabinets */
   let out='';
   [st.u1x, st.u2x].forEach((ux,i)=>{
-    const x=fx(ux), w=st.uw*S, yT=fy(36+st.h), h=st.h*S;
+    const x=fx(ux), w=st.uw*S, yT=fy(42+st.h), h=st.h*S;
     out += `<g data-name="${esc('RINNAI CX160iN #'+(i+1))}">
       <rect class="cab" x="${x}" y="${yT}" width="${w}" height="${h}"/>
       <text class="cabtxt" x="${x+w/2}" y="${yT+14}" text-anchor="middle">RINNAI</text>
@@ -516,13 +530,14 @@ function tankSVG(){
   s += symDRAIN(cx-6, fy(2), 'Tank drain + hand-hole cleanout');
   /* HOT manifold above the tank, dropping into the top tap */
   s += pipe('hot', `M ${fx(HM_L)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(HM_Y)} L ${fx(HM_DROP)} ${fy(67)}`, MAN_HOT);
-  s += symAS(fx(HM_DROP), fy(88), 'AS-1 — air separator');
-  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(76), 'ISO — tank hot isolation, 2"')+'</g>';
+  s += symMAV(fx(HM_L)+9, fy(HM_Y), 'Manual air vent — hot manifold dead end');
+  s += symAS(fx(214), fy(HM_Y), 'AS-1 — air separator');
+  s += '<g class="tankiso">'+symISO(fx(HM_DROP), fy(80), 'ISO — tank hot isolation, 2"')+'</g>';
   /* COOL manifold beside the tank, fed from the bottom tap through strainer + P-1 */
   s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
   s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2"')+'</g>';
   s += symYSTR(fx(CM_X), fy(5.6), 'Y-strainer + dirt separator, 2"');
-  /* expansion tank + make-up share one stub at the manifold base — point of no pressure change */
+  /* expansion tank + make-up share one stub at the manifold base */
   s += pipe('cool thin', `M ${fx(CM_X)} ${fy(4)} L ${fx(186)} ${fy(4)}`, 'Expansion / make-up connection');
   s += symXT(fx(186), fy(5.5), 'XT-1 — expansion tank');
   s += pipe('makeup', `M ${fx(0.4)} ${fy(6.5)} L ${fx(186)} ${fy(6.5)} L ${fx(186)} ${fy(5.3)}`, 'Make-up water — city fill');
@@ -628,11 +643,11 @@ mCus.onclick = ()=>setMode('custom');
 
 /* ---------- component bank ---------- */
 const BANK = [['ISO','ISO valve'],['CHK','Check'],['UNION','Union'],['PUMP','Pump'],
-  ['PRV','Relief'],['TI','Thermom.'],['AAV','Air vent'],['DRAIN','Drain'],
+  ['PRV','Relief'],['TI','Thermom.'],['AAV','Air vent'],['MAV','Manual vent'],['DRAIN','Drain'],
   ['SVC','Svc valve'],['LWCO','LWCO'],['BAL','Balancing'],['YSTR','Y-strainer'],['BFP','Backflow'],['PRFV','Fill valve']];
 const BANK_NAME = {ISO:'ISO — isolation valve', CHK:'CHK — check valve',
   UNION:'Union / press disconnect', PUMP:'P — circulator w/ isolation flanges', PRV:'PRV — relief valve',
-  TI:'TI — thermometer', AAV:'AAV — automatic air vent', DRAIN:'Drain valve',
+  TI:'TI — thermometer', AAV:'AAV — automatic air vent', MAV:'Manual air vent', DRAIN:'Drain valve',
   SVC:'Isolation / flush service valve', LWCO:'LWCO — low water cutoff',
   BAL:'BAL — balancing valve w/ sight flow meter',
   YSTR:'Y-strainer', BFP:'BFP — backflow preventer', PRFV:'PRFV — pressure reducing fill valve'};
