@@ -537,6 +537,15 @@ function tankSVG(){
   s += pipe('cool', `M ${x} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(RUN_Y)} L ${fx(CM_X)} ${fy(CM_TOP)}`, MAN_COOL);
   s += '<g class="tankiso">'+symISO(fx(194.6), fy(RUN_Y), 'ISO — tank cool isolation, 2"')+'</g>';
   s += symYSTR(fx(CM_X), fy(5.6), 'Y-strainer + dirt separator, 2"');
+  /* future load loop — valved and capped tees at the tank, inboard of both tank ISOs */
+  s += pipe('hot thin', `M ${fx(HM_DROP)} ${fy(72)} L ${fx(215)} ${fy(72)}`, 'Future load loop — draw from tank top');
+  s += `<circle cx="${fx(HM_DROP)}" cy="${fy(72)}" r="3" class="symfill" data-name="${esc('Tee — future load loop supply')}"/>`;
+  s += symISO(fx(219), fy(72), 'ISO — future load loop, valved and capped');
+  s += `<line class="sym" x1="${fx(215)}" y1="${fy(72)-5}" x2="${fx(215)}" y2="${fy(72)+5}" stroke-width="2.4" data-name="${esc('Cap — future load loop')}"/>`;
+  s += pipe('cool thin', `M ${fx(196)} ${fy(RUN_Y)} L ${fx(196)} ${fy(9.5)}`, 'Future load loop — return to tank bottom');
+  s += `<circle cx="${fx(196)}" cy="${fy(RUN_Y)}" r="3" class="symfill" data-name="${esc('Tee — future load loop return')}"/>`;
+  s += symISO(fx(196), fy(5.8), 'ISO — future load loop, valved and capped');
+  s += `<line class="sym" x1="${fx(196)-5}" y1="${fy(9.5)}" x2="${fx(196)+5}" y2="${fy(9.5)}" stroke-width="2.4" data-name="${esc('Cap — future load loop')}"/>`;
   /* expansion tank + make-up share one stub at the manifold base */
   s += pipe('cool thin', `M ${fx(CM_X)} ${fy(4)} L ${fx(186)} ${fy(4)}`, 'Expansion / make-up connection');
   s += symXT(fx(186), fy(5.5), 'XT-1 — expansion tank');
